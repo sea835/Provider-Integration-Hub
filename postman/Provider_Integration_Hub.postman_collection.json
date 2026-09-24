@@ -1,0 +1,279 @@
+{
+	"info": {
+		"_postman_id": "8b51d38e-01be-4d1d-b63c-3965b02660aa",
+		"name": "Provider Integration Hub API",
+		"description": "Postman Collection dùng để test toàn bộ các API hiện có trong dự án Provider Integration Hub (NestJS + Drizzle ORM).",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Users",
+			"description": "Quản lý người dùng kế thừa từ BaseController",
+			"item": [
+				{
+					"name": "1. Create User",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"const randomStr = Math.random().toString(36).substring(2, 8);",
+									"pm.variables.set(\"dynamicEmail\", `user_${Date.now()}_${randomStr}@example.com`);"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 201 or 200\", function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+									"});",
+									"",
+									"pm.test(\"User created successfully and has ID\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('id');",
+									"    pm.expect(jsonData).to.have.property('email');",
+									"    ",
+									"    // Tự động lưu userId vào collection variable cho các request kế tiếp",
+									"    pm.collectionVariables.set(\"userId\", jsonData.id);",
+									"    console.log(\"Saved userId: \" + jsonData.id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"{{dynamicEmail}}\",\n    \"password\": \"SecurePassword123!\",\n    \"status\": \"ACTIVE\",\n    \"metadata\": {\n        \"source\": \"postman\",\n        \"role\": \"admin\"\n    }\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/users",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users"
+							]
+						},
+						"description": "Tạo mới một User. Script pre-request tự sinh email ngẫu nhiên để tránh lỗi unique constraint của PostgreSQL. Script test tự lưu id vào biến {{userId}}."
+					},
+					"response": []
+				},
+				{
+					"name": "2. Get All Users",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response is an array\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(Array.isArray(jsonData)).to.be.true;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/users",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users"
+							]
+						},
+						"description": "Lấy danh sách tất cả người dùng trong hệ thống."
+					},
+					"response": []
+				},
+				{
+					"name": "3. Get User By ID",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Returned user matches requested ID\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    var expectedId = pm.collectionVariables.get(\"userId\");",
+									"    if (expectedId) {",
+									"        pm.expect(jsonData.id).to.eql(expectedId);",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/users/{{userId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"{{userId}}"
+							]
+						},
+						"description": "Lấy thông tin chi tiết một User theo id (sử dụng biến {{userId}} từ bước tạo)."
+					},
+					"response": []
+				},
+				{
+					"name": "4. Update User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"User updated successfully\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.status).to.eql(\"INACTIVE\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"status\": \"INACTIVE\",\n    \"metadata\": {\n        \"source\": \"postman_update\",\n        \"note\": \"Updated status to INACTIVE\"\n    }\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/users/{{userId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"{{userId}}"
+							]
+						},
+						"description": "Cập nhật thông tin User theo id (dùng method PATCH)."
+					},
+					"response": []
+				},
+				{
+					"name": "5. Delete User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Delete returned true\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.be.true;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/users/{{userId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"{{userId}}"
+							]
+						},
+						"description": "Xóa User theo id."
+					},
+					"response": []
+				},
+				{
+					"name": "6. Verify User Deleted (Expect 404)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 404 NotFound\", function () {",
+									"    pm.response.to.have.status(404);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/users/{{userId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"{{userId}}"
+							]
+						},
+						"description": "Kiểm tra lại xem User vừa bị xóa có trả về 404 NotFoundException hay không."
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:3000",
+			"type": "string"
+		},
+		{
+			"key": "userId",
+			"value": "",
+			"type": "string"
+		}
+	]
+}

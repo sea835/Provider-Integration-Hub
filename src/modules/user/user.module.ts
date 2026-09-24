@@ -1,7 +1,8 @@
 import { Module } from '@nestjs/common';
-import { UserController } from './presentation/user.controller';
-import { UserService } from './application/user.service';
-import { UserRepository } from './infrastructure/user.repository';
+import { UserController } from '@modules/user/presentation/user.controller';
+import { UserService } from '@modules/user/application/user.service';
+import { UserRepository } from '@modules/user/infrastructure/user.repository';
+import { UserRepositoryPort } from '@modules/user/domain/user.repository.port';
 import { DrizzleModule } from '@infrastructure/database/drizzle.module';
 
 @Module({
@@ -10,10 +11,14 @@ import { DrizzleModule } from '@infrastructure/database/drizzle.module';
   providers: [
     UserService,
     {
-      provide: 'IUserRepository',
+      provide: UserRepositoryPort,
       useClass: UserRepository,
     },
+    {
+      provide: 'IUserRepository',
+      useExisting: UserRepositoryPort,
+    },
   ],
-  exports: [UserService],
+  exports: [UserService, UserRepositoryPort],
 })
 export class UserModule {}

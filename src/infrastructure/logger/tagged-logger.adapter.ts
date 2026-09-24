@@ -1,7 +1,10 @@
 import { LoggerPort, LogLevel, LogMeta } from '@common/logger';
-import { LOG_LEVEL_PRIORITY, LoggerConfig } from './logger.config';
-import { RequestContext } from './request-context';
-import { loggerRegistry } from './logger.registry';
+import {
+  LOG_LEVEL_PRIORITY,
+  LoggerConfig,
+} from '@infrastructure/logger/logger.config';
+import { RequestContext } from '@infrastructure/logger/request-context';
+import { loggerRegistry } from '@infrastructure/logger/logger.registry';
 
 const LEVEL_COLOR: Record<LogLevel, string> = {
   error: '\x1b[31m',

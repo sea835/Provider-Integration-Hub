@@ -5,7 +5,7 @@ import {
   DrizzlePoolProvider,
   DRIZZLE,
   DRIZZLE_POOL,
-} from './drizzle.provider';
+} from '@infrastructure/database/drizzle.provider';
 
 @Global()
 @Module({

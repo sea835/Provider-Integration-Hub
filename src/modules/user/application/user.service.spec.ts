@@ -1,7 +1,6 @@
 import { NotFoundException } from '@nestjs/common';
-import { UserService } from './user.service';
-import { UserEntity } from '../domain/user.entity';
-import { UserRepository } from '../infrastructure/user.repository';
+import { UserService } from '@modules/user/application/user.service';
+import { UserEntity } from '@modules/user/domain/user.entity';
 import { LoggerPort } from '@common/logger';
 
 describe('UserService', () => {
@@ -34,19 +33,21 @@ describe('UserService', () => {
     };
 
     service = new UserService(
-      mockRepository as unknown as UserRepository,
+      mockRepository,
       mockLogger as unknown as LoggerPort,
     );
   });
 
   describe('Password hashing & verification', () => {
-    it('nên băm mật khẩu và verify chính xác', () => {
+    it('nên băm mật khẩu và verify chính xác', async () => {
       const password = 'mySecretPassword123';
-      const hash = UserService.hashPassword(password);
+      const hash = await UserService.hashPassword(password);
 
       expect(hash).toContain(':');
-      expect(UserService.verifyPassword(password, hash)).toBe(true);
-      expect(UserService.verifyPassword('wrongPassword', hash)).toBe(false);
+      expect(await UserService.verifyPassword(password, hash)).toBe(true);
+      expect(await UserService.verifyPassword('wrongPassword', hash)).toBe(
+        false,
+      );
     });
   });
 

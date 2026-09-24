@@ -1,9 +1,12 @@
 /* eslint-disable no-control-regex */
 import { LogLevel } from '@common/logger';
-import { LoggerConfig } from './logger.config';
-import { RequestContext } from './request-context';
-import { TaggedLoggerAdapter, LogRecord } from './tagged-logger.adapter';
-import { loggerRegistry } from './logger.registry';
+import { LoggerConfig } from '@infrastructure/logger/logger.config';
+import { RequestContext } from '@infrastructure/logger/request-context';
+import {
+  TaggedLoggerAdapter,
+  LogRecord,
+} from '@infrastructure/logger/tagged-logger.adapter';
+import { loggerRegistry } from '@infrastructure/logger/logger.registry';
 
 describe('TaggedLoggerAdapter', () => {
   const baseConfig: LoggerConfig = {

@@ -1,7 +1,7 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { NextFunction, Request, Response } from 'express';
 import { uuidv7 } from 'uuidv7';
-import { RequestContext } from './request-context';
+import { RequestContext } from '@infrastructure/logger/request-context';
 
 export const REQUEST_ID_HEADER = 'x-request-id';
 

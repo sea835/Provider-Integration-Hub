@@ -1,5 +1,5 @@
 import { pgTable, varchar } from 'drizzle-orm/pg-core';
-import { baseSchema } from '../../../common/base/base.schema';
+import { baseSchema } from '@common/base/base.schema';
 
 export const users = pgTable('users', {
   ...baseSchema,

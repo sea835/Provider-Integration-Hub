@@ -4,12 +4,18 @@ dotenv.config();
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { AppModule } from './app.module';
+import helmet from 'helmet';
+import { AppModule } from '@/app.module';
 import { NestLoggerBridge } from '@infrastructure/logger/nest-logger.bridge';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
   app.useLogger(app.get(NestLoggerBridge));
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+    }),
+  );
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

@@ -1,6 +1,6 @@
 import { Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
-import { BaseService } from './base.service';
-import { PaginationQueryDto } from './base.repository';
+import { BaseService } from '@common/base/base.service';
+import { PaginationQueryDto } from '@common/base/base.repository';
 
 export abstract class BaseController<T> {
   constructor(protected readonly baseService: BaseService<T>) {}

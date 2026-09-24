@@ -12,7 +12,8 @@ Mô tả các cơ chế bảo mật đang có: xác thực bằng JWT + session,
 | CORS | `app.enableCors()` — cho phép **mọi origin** | `src/main.ts` |
 | Rate limit | `ThrottlerGuard` global, theo IP | `src/app.module.ts` |
 | Xác thực | `JwtAuthGuard` global, mở bằng `@Public()` | `src/modules/auth/presentation/guards/jwt-auth.guard.ts` |
-| Phân quyền | `RolesGuard` global, bật bằng `@Roles(...)` | `src/modules/auth/presentation/guards/roles.guard.ts` |
+| Phân quyền | `RolesGuard` global, bật bằng `@Roles(...)`; `/users` chỉ `ADMIN` | `src/modules/auth/presentation/guards/roles.guard.ts` |
+| Health check | Response không chứa lý do lỗi DB (chỉ ghi log) | `src/modules/health/application/health.service.ts` |
 | Input | `ValidationPipe` whitelist + từ chối field lạ | `src/main.ts` |
 | Mật khẩu | scrypt + salt ngẫu nhiên, so sánh constant-time | `src/modules/user/application/user.service.ts` |
 | Response | `UserResponseDto` chọn field, không bao giờ trả `password` | `src/modules/user/presentation/dto/user.response.ts` |
@@ -93,37 +94,61 @@ Mật khẩu được băm ở `UserService.create/update` (qua `/users`) và `A
 ## 5. Phân Quyền
 
 - **Mặc định mọi route cần access token.** Mở route public bằng `@Public()` (method hoặc cả controller).
-- **Role:** `ADMIN`, `USER`, `MANAGER` (hằng `Role` trong `user.schema.ts`). Role nằm trong JWT, nên đổi role của user chỉ có hiệu lực từ token kế tiếp.
-- Giới hạn theo role:
+- **Role:** `ADMIN`, `USER`, `MANAGER` — hằng `Role` ở `src/modules/user/domain/user-role.ts`, nguồn duy nhất cho validation DTO và kiểu của `@Roles`.
+- Role nằm trong JWT, `RolesGuard` không truy vấn DB → đổi role chỉ có hiệu lực từ access token kế tiếp (tối đa `JWT_EXPIRES_IN_SEC`, mặc định 15 phút).
+
+### Ma trận quyền
+
+| Route | Public | `USER` | `MANAGER` | `ADMIN` |
+|---|:-:|:-:|:-:|:-:|
+| `POST /auth/register`, `/auth/login`, `/auth/refresh` | ✅ | ✅ | ✅ | ✅ |
+| `GET /health/live`, `/health/ready` | ✅ | ✅ | ✅ | ✅ |
+| `POST /auth/logout`, `GET /auth/me` | | ✅ | ✅ | ✅ |
+| `POST/GET/PATCH/DELETE /users[/:id]` | | | | ✅ |
+
+`MANAGER` hiện có quyền như `USER`; role này để dành cho các endpoint sau này.
+
+### Cấp role
+
+| Cách | Role nhận được |
+|---|---|
+| `POST /auth/register` (tự đăng ký) | Luôn `USER`. Gửi `role` trong body → `400` |
+| `POST /users` (ADMIN tạo) | Theo field `role`, mặc định `USER` |
+| `PATCH /users/:id` (ADMIN sửa) | Theo field `role` |
+| `npm run db:seed:admin` | `ADMIN` — cách duy nhất để có ADMIN đầu tiên |
+
+`db:seed:admin` đọc `ADMIN_EMAIL`, `ADMIN_PASSWORD` từ biến môi trường: email chưa có → tạo tài khoản ADMIN; email đã có → nâng lên ADMIN, **giữ nguyên mật khẩu cũ**. Truyền biến trực tiếp trên dòng lệnh, không lưu `ADMIN_PASSWORD` trong `.env` dùng chung. Ở production: [DEPLOYMENT.md](./DEPLOYMENT.md) mục 3.
+
+### Giới hạn quyền cho endpoint mới
 
 ```ts
 import { Roles } from '@modules/auth/presentation/decorators/roles.decorator';
-import { Role } from '@modules/user/infrastructure/user.schema';
+import { Role } from '@modules/user/domain/user-role';
 
-@Roles(Role.ADMIN)
-@Delete(':id')
-remove(@Param('id') id: string) { ... }
+@Roles(Role.ADMIN, Role.MANAGER)   // gắn ở method, hoặc ở class để áp dụng cho cả controller
+@Get('reports')
+getReports() { ... }
 ```
 
+- `@Roles` chỉ nhận giá trị kiểu `RoleType` — gõ sai tên role sẽ lỗi biên dịch.
 - Lấy thông tin người gọi: `@CurrentUser() user: TokenPayload` hoặc `@CurrentUser('sub') userId: string`.
-
-Hiện **chưa có endpoint nào dùng `@Roles`**.
+- Kiểm tra "chính chủ" (ví dụ chỉ được sửa bản ghi của mình) **không** làm được bằng `@Roles` — phải so `currentUser.sub` với chủ bản ghi trong service.
 
 ---
 
 ## 6. Rủi Ro Đã Biết
 
-### 🔴 R1 — Toàn bộ `/users` là public
+### ✅ R1 — Toàn bộ `/users` là public (đã xử lý)
 
-`UserController` gắn `@Public()` ở cấp class. Người không đăng nhập có thể liệt kê mọi user, đổi email/mật khẩu của bất kỳ ai (chiếm tài khoản), và xoá user.
+Trước đây `UserController` gắn `@Public()` ở cấp class: người không đăng nhập liệt kê, sửa (kể cả mật khẩu), xoá được mọi user.
 
-**Xử lý:** bỏ `@Public()`; gắn `@Roles(Role.ADMIN)` cho `GET /users`, `DELETE`, `POST`; với `PATCH` chỉ cho phép ADMIN hoặc chính chủ (`id === currentUser.sub`).
+**Đã xử lý:** bỏ `@Public()`, gắn `@Roles(Role.ADMIN)` ở cấp class. Người dùng thường xem thông tin của mình qua `GET /auth/me`; endpoint tự đổi mật khẩu chưa có.
 
-### 🔴 R2 — Tự đăng ký làm ADMIN
+### ✅ R2 — Tự đăng ký làm ADMIN (đã xử lý)
 
-`RegisterRequestDto` nhận `role` từ client với giá trị cho phép gồm `ADMIN`. Bất kỳ ai cũng tạo được tài khoản quản trị.
+Trước đây `RegisterRequestDto` nhận `role` (gồm cả `ADMIN`) từ client.
 
-**Xử lý:** bỏ field `role` khỏi DTO đăng ký, luôn gán `USER`. Tạo ADMIN bằng seed script hoặc endpoint dành riêng cho ADMIN.
+**Đã xử lý:** bỏ field `role` khỏi DTO và command đăng ký, `AuthService.register` luôn gán `USER`. ADMIN đầu tiên tạo bằng `npm run db:seed:admin`.
 
 ### 🔴 R3 — JWT secret mặc định viết cứng
 
@@ -133,7 +158,7 @@ Hiện **chưa có endpoint nào dùng `@Roles`**.
 
 ### 🟠 R4 — Access token vẫn dùng được sau logout
 
-`JwtAuthGuard` chỉ kiểm tra chữ ký và hạn, không kiểm tra session. Sau logout hoặc khi user bị khoá/xoá, access token còn hiệu lực tối đa `JWT_EXPIRES_IN_SEC` (15 phút).
+`JwtAuthGuard` chỉ kiểm tra chữ ký và hạn, không kiểm tra session; `RolesGuard` đọc role từ token. Sau logout, khi user bị khoá/xoá, hoặc khi ADMIN bị hạ quyền, access token cũ còn hiệu lực (kèm role cũ) tối đa `JWT_EXPIRES_IN_SEC` (15 phút).
 
 **Xử lý (chọn một):** giữ TTL ngắn và chấp nhận; hoặc guard kiểm tra `sessions.is_revoked` theo `sessionId` (thêm 1 query/request, có thể cache).
 
@@ -156,9 +181,9 @@ Ngoài ra, rate limit dùng `req.ip`; khi chạy sau reverse proxy mà chưa c�
 
 Khi một refresh token **đã bị thu hồi** được dùng lại (dấu hiệu token bị đánh cắp), hệ thống chỉ trả 401. Có thể nâng cấp: thu hồi toàn bộ session của user khi phát hiện.
 
-### 🟡 R8 — Đổi mật khẩu không thu hồi phiên
+### 🟡 R8 — Đổi mật khẩu / role không thu hồi phiên
 
-`PATCH /users/:id` đổi mật khẩu nhưng các session cũ vẫn refresh được. Nên gọi `revokeAllUserSessions(userId)` khi đổi mật khẩu.
+`PATCH /users/:id` (ADMIN) đổi mật khẩu hoặc role nhưng các session cũ vẫn refresh được. Nên gọi `revokeAllUserSessions(userId)` khi đổi mật khẩu hoặc hạ role.
 
 ### 🟡 R9 — Chính sách mật khẩu yếu, không khoá tài khoản
 
@@ -172,8 +197,9 @@ Tối thiểu 6 ký tự; chống brute-force chỉ dựa vào rate limit 10 l�
 
 ## 7. Checklist Trước Khi Lên Production
 
-- [ ] R1, R2, R3 đã được xử lý.
+- [ ] R3 đã được xử lý.
 - [ ] `JWT_SECRET` và `REFRESH_JWT_SECRET` là chuỗi ngẫu nhiên ≥ 32 ký tự, **khác nhau**, không commit vào repo.
+- [ ] Đã tạo ADMIN đầu tiên bằng `db:seed:admin` với mật khẩu mạnh; `ADMIN_PASSWORD` không nằm trong file env của server.
 - [ ] `NODE_ENV=production` (ẩn chi tiết lỗi 500, log dạng JSON).
 - [ ] `trust proxy` được cấu hình đúng số lớp proxy.
 - [ ] CORS giới hạn origin.

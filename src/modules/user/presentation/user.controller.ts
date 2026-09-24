@@ -8,16 +8,19 @@ import {
   Delete,
   Query,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { UserService } from '@modules/user/application/user.service';
+import { Role } from '@modules/user/domain/user-role';
 import { CreateUserDto } from '@modules/user/presentation/dto/create-user.dto';
 import { UpdateUserDto } from '@modules/user/presentation/dto/update-user.dto';
 import { UserResponseDto } from '@modules/user/presentation/dto/user.response';
 import { PaginationQueryDto } from '@common/base/base.repository';
-import { Public } from '@modules/auth/presentation/decorators/public.decorator';
+import { Roles } from '@modules/auth/presentation/decorators/roles.decorator';
 
-@Public()
+// Quản trị người dùng: chỉ ADMIN. Người dùng tự xem thông tin của mình qua GET /auth/me.
+@Roles(Role.ADMIN)
 @ApiTags('users')
+@ApiBearerAuth()
 @Controller('users')
 export class UserController {
   constructor(private readonly userService: UserService) {}

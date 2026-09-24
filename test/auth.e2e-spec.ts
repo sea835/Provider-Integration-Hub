@@ -41,7 +41,6 @@ describe('AuthController (e2e)', () => {
         .send({
           email: testEmail,
           password: testPassword,
-          role: 'USER',
         })
         .expect(201);
 
@@ -50,6 +49,7 @@ describe('AuthController (e2e)', () => {
       expect(body).toHaveProperty('refreshToken');
       expect(body).toHaveProperty('expiresIn');
       expect(body.user.email).toBe(testEmail);
+      expect(body.user.role).toBe('USER');
       expect((body.user as Record<string, unknown>).password).toBeUndefined();
 
       accessToken = body.accessToken;
@@ -68,6 +68,20 @@ describe('AuthController (e2e)', () => {
       const body = response.body as ApiErrorResponse;
       expect(body.statusCode).toBe(409);
       expect(body.error).toBe('Conflict');
+    });
+
+    it('nên trả về 400 khi client tự gửi role (không cho tự đăng ký ADMIN)', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({
+          email: `self-admin-${Date.now()}@example.com`,
+          password: testPassword,
+          role: 'ADMIN',
+        })
+        .expect(400);
+
+      const body = response.body as ApiErrorResponse;
+      expect(body.message).toContain('property role should not exist');
     });
 
     it('nên trả về 400 Bad Request khi mật khẩu dưới 6 ký tự', async () => {

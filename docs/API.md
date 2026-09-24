@@ -27,7 +27,7 @@ Mọi endpoint **mặc định yêu cầu** access token:
 Authorization: Bearer <accessToken>
 ```
 
-Endpoint không cần token được đánh dấu **Public** trong bảng ở mục 7.
+Endpoint không cần token được đánh dấu **Public**, endpoint cần role cụ thể ghi rõ role trong bảng ở mục 7.
 
 | Tình huống | Kết quả |
 |---|---|
@@ -36,6 +36,16 @@ Endpoint không cần token được đánh dấu **Public** trong bảng ở m�
 | Endpoint yêu cầu role mà token không có | `403` — `Bạn không có quyền thực hiện hành động này` |
 
 Access token sống **900 giây** (mặc định), refresh token **7 ngày**. Khi access token hết hạn, gọi `POST /auth/refresh` để lấy cặp token mới. Chi tiết: [SECURITY.md](./SECURITY.md).
+
+### Role
+
+| Role | Cách có được | Quyền hiện tại |
+|---|---|---|
+| `USER` | Tự đăng ký qua `POST /auth/register` (luôn là `USER`), hoặc ADMIN tạo | `/auth/me`, `/auth/logout` |
+| `MANAGER` | ADMIN gán qua `POST/PATCH /users` | Như `USER` (chưa có endpoint riêng) |
+| `ADMIN` | Script `npm run db:seed:admin`, hoặc ADMIN khác gán | Như trên + toàn bộ `/users` |
+
+Role nằm trong access token. Khi role của một người dùng bị đổi, token cũ vẫn mang role cũ cho tới khi hết hạn; role mới có hiệu lực từ lần đăng nhập hoặc refresh tiếp theo.
 
 ---
 
@@ -46,7 +56,7 @@ Access token sống **900 giây** (mặc định), refresh token **7 ngày**. Kh
 | `Authorization` | Request | `Bearer <accessToken>` |
 | `x-request-id` | Request (tuỳ chọn) | Mã theo dõi từ upstream, tối đa 128 ký tự; dài hơn sẽ bị thay bằng mã mới |
 | `x-request-id` | Response | Luôn có. Dùng để tra log khi báo lỗi |
-| `X-RateLimit-Limit` | Response | Số request tối đa trong cửa sổ |
+| `X-RateLimit-Limit` | Response | Số request tối đa trong cửa sổ (không có ở `/health/*`) |
 | `X-RateLimit-Remaining` | Response | Số request còn lại |
 | `X-RateLimit-Reset` | Response | Số giây tới khi cửa sổ reset |
 | `Retry-After` | Response (khi 429) | Số giây phải chờ |
@@ -60,6 +70,7 @@ Access token sống **900 giây** (mặc định), refresh token **7 ngày**. Kh
 | Endpoint | Giới hạn |
 |---|---|
 | `POST /auth/register`, `POST /auth/login` | 10 request / 60 giây |
+| `GET /health/live`, `GET /health/ready` | Không giới hạn |
 | Mọi endpoint khác | 100 request / 60 giây |
 
 Vượt giới hạn trả `429`:
@@ -110,13 +121,14 @@ Ví dụ lỗi validation:
 |---|---|
 | `400` | Body/query sai kiểu, thiếu field, **có field lạ** không khai báo trong DTO, ID không phải UUID hợp lệ, tham chiếu khoá ngoại không tồn tại |
 | `401` | Thiếu/sai access token; sai email hoặc mật khẩu; refresh token không hợp lệ hoặc phiên đã bị thu hồi |
-| `403` | Tài khoản không ở trạng thái `ACTIVE`; không đủ role |
+| `403` | Tài khoản không ở trạng thái `ACTIVE`; token không có role mà endpoint yêu cầu |
 | `404` | Không tìm thấy bản ghi |
 | `409` | Trùng giá trị duy nhất (email) |
 | `429` | Vượt rate limit |
 | `500` | Lỗi hệ thống. Ở production `message` luôn là `Internal server error occurred` |
+| `503` | `GET /health/ready`: database không phản hồi |
 
-> Body gửi lên có field không khai báo (ví dụ gửi `role` vào `POST /users`) sẽ bị **từ chối 400** với message `property role should not exist`, không bị bỏ qua âm thầm.
+> Body gửi lên có field không khai báo (ví dụ gửi `role` vào `POST /auth/register`) sẽ bị **từ chối 400** với message `property role should not exist`, không bị bỏ qua âm thầm.
 
 ---
 
@@ -144,13 +156,15 @@ Kết quả sắp xếp theo `createdAt` giảm dần (mới nhất trước).
 | `POST` | `/auth/refresh` | Public | Đổi refresh token lấy cặp token mới |
 | `POST` | `/auth/logout` | Bearer | Thu hồi phiên hiện tại |
 | `GET` | `/auth/me` | Bearer | Thông tin tài khoản đang đăng nhập |
-| `POST` | `/users` | Public ⚠️ | Tạo người dùng |
-| `GET` | `/users` | Public ⚠️ | Danh sách người dùng |
-| `GET` | `/users/:id` | Public ⚠️ | Chi tiết người dùng |
-| `PATCH` | `/users/:id` | Public ⚠️ | Cập nhật người dùng |
-| `DELETE` | `/users/:id` | Public ⚠️ | Xoá người dùng |
+| `POST` | `/users` | Bearer · `ADMIN` | Tạo người dùng |
+| `GET` | `/users` | Bearer · `ADMIN` | Danh sách người dùng |
+| `GET` | `/users/:id` | Bearer · `ADMIN` | Chi tiết người dùng |
+| `PATCH` | `/users/:id` | Bearer · `ADMIN` | Cập nhật người dùng (kể cả role) |
+| `DELETE` | `/users/:id` | Bearer · `ADMIN` | Xoá người dùng |
+| `GET` | `/health/live` | Public | Liveness: tiến trình còn sống |
+| `GET` | `/health/ready` | Public | Readiness: sẵn sàng nhận traffic (kiểm tra DB) |
 
-> ⚠️ Toàn bộ `/users` đang gắn `@Public()` ở cấp controller. Đây là lỗ hổng đã biết ([SECURITY.md](./SECURITY.md) mục 6) — client **không nên** dựa vào việc các endpoint này public, vì sẽ bị khoá lại.
+Người dùng không phải ADMIN xem thông tin của chính mình qua `GET /auth/me`.
 
 ---
 
@@ -158,7 +172,7 @@ Kết quả sắp xếp theo `createdAt` giảm dần (mới nhất trước).
 
 ### 8.1. `POST /auth/register` — Đăng ký
 
-**Public** · Rate limit 10/phút · Tạo user mới, tạo phiên đăng nhập và trả luôn cặp token.
+**Public** · Rate limit 10/phút · Tạo user mới với role `USER`, tạo phiên đăng nhập và trả luôn cặp token.
 
 **Body**
 
@@ -166,7 +180,6 @@ Kết quả sắp xếp theo `createdAt` giảm dần (mới nhất trước).
 |---|---|---|---|
 | `email` | string | ✅ | Đúng định dạng email |
 | `password` | string | ✅ | Tối thiểu 6 ký tự |
-| `role` | string | | `ADMIN` \| `USER` \| `MANAGER`, mặc định `USER` |
 
 ```json
 {
@@ -175,7 +188,9 @@ Kết quả sắp xếp theo `createdAt` giảm dần (mới nhất trước).
 }
 ```
 
-**Response `201`** — `AuthResponse` (mục 10.2)
+Không nhận field `role`: gửi kèm `role` sẽ bị `400` `property role should not exist`. Quyền cao hơn do ADMIN cấp qua `PATCH /users/:id`.
+
+**Response `201`** — `AuthResponse` (mục 11.2)
 
 **Lỗi:** `400` validation · `409` `Email đã tồn tại trong hệ thống` · `429`
 
@@ -273,13 +288,15 @@ Thu hồi **phiên gắn với access token đang dùng**. Các phiên trên thi
 
 **Bearer**
 
-**Response `200`** — `UserResponse` (mục 10.1)
+**Response `200`** — `UserResponse` (mục 11.1)
 
 **Lỗi:** `401` thiếu/sai token · `404` `Người dùng không tồn tại` (user đã bị xoá sau khi cấp token)
 
 ---
 
 ## 9. Users
+
+Mọi endpoint trong nhóm này yêu cầu **access token của role `ADMIN`**. Không có token → `401`; token của role khác → `403` `Bạn không có quyền thực hiện hành động này`.
 
 ### 9.1. `POST /users` — Tạo người dùng
 
@@ -289,8 +306,9 @@ Thu hồi **phiên gắn với access token đang dùng**. Các phiên trên thi
 |---|---|---|---|
 | `email` | string | ✅ | Đúng định dạng email |
 | `password` | string | ✅ | Tối thiểu 6 ký tự |
+| `role` | string | | `ADMIN` \| `USER` \| `MANAGER`, mặc định `USER` |
 
-User tạo qua endpoint này luôn có `role: "USER"`, `status: "ACTIVE"`. Không trả token (khác với `/auth/register`).
+User tạo qua endpoint này có `status: "ACTIVE"`. Không trả token (khác với `/auth/register`).
 
 **Response `201`** — `UserResponse`
 
@@ -328,12 +346,13 @@ GET /users?page=1&limit=20
 |---|---|---|
 | `email` | string | Đúng định dạng email |
 | `password` | string | Tối thiểu 6 ký tự; được băm trước khi lưu |
+| `role` | string | `ADMIN` \| `USER` \| `MANAGER` |
 
 **Response `200`** — `UserResponse` sau cập nhật
 
 **Lỗi:** `400` · `404` · `409` email mới trùng với user khác
 
-> Đổi mật khẩu qua endpoint này **không** thu hồi các phiên đăng nhập đang có.
+> Đổi mật khẩu hoặc role qua endpoint này **không** thu hồi các phiên đăng nhập đang có. Role mới có hiệu lực khi người dùng đăng nhập lại hoặc refresh token.
 
 ---
 
@@ -353,9 +372,63 @@ true
 
 ---
 
-## 10. Kiểu Dữ Liệu
+## 10. Health
 
-### 10.1. `UserResponse`
+Dùng cho probe của Docker / Kubernetes / load balancer. **Public**, không tính rate limit, không cần token.
+
+### 10.1. `GET /health/live` — Liveness
+
+Tiến trình còn sống và xử lý được request. **Không** kiểm tra database, nên DB gián đoạn không làm endpoint này lỗi.
+
+**Response `200`**
+
+```json
+{
+  "status": "ok",
+  "uptimeSeconds": 3600,
+  "timestamp": "2026-09-24T08:00:00.000Z"
+}
+```
+
+### 10.2. `GET /health/ready` — Readiness
+
+Sẵn sàng nhận traffic: chạy `select 1` trên database, chờ tối đa 3 giây.
+
+**Response `200`**
+
+```json
+{
+  "status": "ok",
+  "checks": {
+    "database": { "status": "up", "latencyMs": 3 }
+  },
+  "timestamp": "2026-09-24T08:00:00.000Z"
+}
+```
+
+**Response `503`** — database lỗi hoặc không phản hồi trong 3 giây. Theo định dạng lỗi chung (mục 5), trạng thái từng phụ thuộc nằm trong `details`:
+
+```json
+{
+  "statusCode": 503,
+  "error": "Service Unavailable",
+  "message": "Hệ thống chưa sẵn sàng: database không phản hồi",
+  "details": {
+    "database": { "status": "down", "latencyMs": 3001 }
+  },
+  "timestamp": "2026-09-24T08:00:00.000Z",
+  "path": "/health/ready",
+  "requestId": "0192f3a1-..."
+}
+```
+
+Lý do lỗi cụ thể (sai mật khẩu, từ chối kết nối...) **không** có trong response — tra log theo `requestId`.
+
+---
+
+## 11. Kiểu Dữ Liệu
+
+### 11.1. `UserResponse`
 
 | Field | Kiểu | Mô tả |
 |---|---|---|
@@ -371,7 +444,7 @@ true
 
 `password` **không bao giờ** có trong response.
 
-### 10.2. `AuthResponse`
+### 11.2. `AuthResponse`
 
 | Field | Kiểu | Mô tả |
 |---|---|---|
@@ -380,7 +453,7 @@ true
 | `expiresIn` | number | Thời gian sống của **access token**, tính bằng giây |
 | `user` | `UserResponse` | |
 
-### 10.3. Payload của JWT
+### 11.3. Payload của JWT
 
 Cả access token và refresh token cùng payload, ký bằng hai secret khác nhau (HS256):
 
@@ -397,12 +470,17 @@ Cả access token và refresh token cùng payload, ký bằng hai secret khác n
 
 ---
 
-## 11. Ví Dụ Luồng Sử Dụng
+## 12. Ví Dụ Luồng Sử Dụng
+
+### Người dùng thường
 
 ```bash
 BASE=http://localhost:3000
 
-# 1. Đăng ký
+# 0. Hệ thống sẵn sàng?
+curl -s $BASE/health/ready
+
+# 1. Đăng ký (luôn nhận role USER)
 curl -s -X POST $BASE/auth/register \
   -H 'Content-Type: application/json' \
   -d '{"email":"demo@example.com","password":"Secret123!"}'
@@ -426,8 +504,37 @@ curl -s -X POST $BASE/auth/refresh \
 curl -s -X POST $BASE/auth/logout -H "Authorization: Bearer $ACCESS"
 ```
 
+### Quản trị viên
+
+```bash
+# 1. Tạo ADMIN đầu tiên (chạy một lần, trên máy có quyền vào DB)
+ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD='ChangeMe123!' npm run db:seed:admin
+
+# 2. Đăng nhập bằng ADMIN
+ADMIN=$(curl -s -X POST $BASE/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"admin@example.com","password":"ChangeMe123!"}' | jq -r .accessToken)
+
+# 3. Xem danh sách, nâng quyền một người dùng lên MANAGER
+curl -s "$BASE/users?page=1&limit=20" -H "Authorization: Bearer $ADMIN"
+curl -s -X PATCH $BASE/users/<id> \
+  -H "Authorization: Bearer $ADMIN" -H 'Content-Type: application/json' \
+  -d '{"role":"MANAGER"}'
+```
+
 ---
 
-## 12. Postman
+## 13. Postman
 
-`postman/Provider_Integration_Hub.postman_collection.json` cùng environment (`baseUrl`, `userId`) hiện chỉ có nhóm **Users** (6 request). Nhóm **Auth** chưa được bổ sung.
+Import `postman/Provider_Integration_Hub.postman_collection.json` và environment `postman/Provider_Integration_Hub.postman_environment.json`.
+
+| Nhóm | Request |
+|---|---|
+| Health | Liveness, Readiness |
+| Auth | Register, Login (Admin), Me, Refresh Token |
+| Users | Create, Get All, Get By ID, Update (đổi role), Delete, Verify Deleted |
+| (cuối) | Logout |
+
+- Điền `adminEmail`, `adminPassword` trong environment bằng tài khoản tạo từ `npm run db:seed:admin`.
+- Collection dùng auth Bearer `{{accessToken}}`; `Login (Admin)` và `Refresh Token` tự lưu token vào biến collection.
+- Chạy cả collection theo thứ tự (Collection Runner) để đi hết luồng; `Logout` đặt cuối cùng.

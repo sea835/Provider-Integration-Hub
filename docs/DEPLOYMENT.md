@@ -11,7 +11,7 @@ Build image, chạy migration ở môi trường thật, pipeline CI và các l�
 | Đóng gói | Docker image multi-stage (`Dockerfile`) |
 | CI | GitHub Actions (`.github/workflows/ci.yml`): lint → unit test → migrate → E2E → build |
 | CD (build/push image, deploy) | **Chưa có** |
-| Health check endpoint | **Chưa có** |
+| Health check | `GET /health/live`, `GET /health/ready`; `HEALTHCHECK` trong Dockerfile |
 | Trạng thái của app | Stateless, trừ bộ đếm rate limit lưu trong bộ nhớ |
 
 ---
@@ -23,7 +23,7 @@ Build image, chạy migration ở môi trường thật, pipeline CI và các l�
 | Stage | Base | Việc làm |
 |---|---|---|
 | `builder` | `node:22-alpine` | `npm ci` → `npm run build` → `npm prune --production` |
-| `runner` | `node:22-alpine` | Chạy bằng user `node`, chỉ chứa `package*.json`, `node_modules` (production) và `dist/`; `NODE_ENV=production`, `PORT=3000`, `CMD node dist/main` |
+| `runner` | `node:22-alpine` | Chạy bằng user `node`, chỉ chứa `package*.json`, `node_modules` (production) và `dist/`; `NODE_ENV=production`, `PORT=3000`, `HEALTHCHECK` gọi `/health/live`, `CMD node dist/main` |
 
 Build và chạy:
 
@@ -79,6 +79,24 @@ docker run --rm --env-file .env.production provider-integration-hub:<version> \
 
 Quy trình chi tiết: [huong-dan-migration.md](huong-dan/huong-dan-migration.md).
 
+### Tạo tài khoản ADMIN đầu tiên
+
+Đăng ký công khai luôn nhận role `USER`, nên môi trường mới cần chạy seed **một lần** sau migration. Script đã được build sẵn vào image, không cần file SQL hay `tsx`:
+
+```bash
+docker run --rm \
+  --env-file .env.production \
+  -e ADMIN_EMAIL=admin@company.com \
+  -e ADMIN_PASSWORD='<mật khẩu mạnh>' \
+  provider-integration-hub:<version> \
+  node dist/infrastructure/database/seed-admin.js
+```
+
+Hoặc từ pipeline có mã nguồn: `ADMIN_EMAIL=... ADMIN_PASSWORD=... DATABASE_URL=... npm run db:seed:admin`.
+
+- Chạy lại an toàn: email đã là ADMIN thì không đổi gì; email đã tồn tại với role khác thì được nâng lên ADMIN, **giữ mật khẩu cũ**.
+- Không đưa `ADMIN_PASSWORD` vào file env của server hay biến môi trường lâu dài của container app. Đổi mật khẩu sau lần đăng nhập đầu tiên (hiện qua `PATCH /users/:id`).
+
 ---
 
 ## 4. CI
@@ -104,11 +122,37 @@ CI không đặt `JWT_SECRET` → test chạy với secret mặc định trong c
 
 - App lắng nghe `PORT` (mặc định 3000), chạy với user `node` (không phải root).
 - `enableShutdownHooks()` bật: khi nhận `SIGTERM`, Nest gọi `onApplicationShutdown` → đóng pool PostgreSQL.
-- App **dừng ngay khi khởi động** nếu thiếu `DATABASE_URL`. Sai thông tin kết nối DB **không** làm app dừng lúc khởi động — lỗi chỉ lộ ra ở request đầu tiên chạm DB (pool kết nối lười).
+- App **dừng ngay khi khởi động** nếu thiếu `DATABASE_URL`. Sai thông tin kết nối DB **không** làm app dừng lúc khởi động — lỗi chỉ lộ ra ở request đầu tiên chạm DB (pool kết nối lười). `GET /health/ready` phát hiện được trường hợp này (trả `503`).
 
 ### Health check
 
-Chưa có endpoint health. Trong lúc chờ bổ sung (`GET /health` kiểm tra `SELECT 1`), dùng TCP probe trên cổng 3000 cho liveness. Không dùng `/docs` làm health check: trang này không phản ánh trạng thái DB.
+| Endpoint | Kiểm tra | Thành công | Thất bại | Dùng cho |
+|---|---|---|---|---|
+| `GET /health/live` | Tiến trình phản hồi được HTTP | `200` | Không phản hồi | Liveness: hỏng → khởi động lại container |
+| `GET /health/ready` | `select 1` trên DB, tối đa 3 giây | `200` | `503` | Readiness: hỏng → ngừng chuyển traffic, **không** khởi động lại |
+
+Cả hai là public, không tính rate limit. Chi tiết response: [API.md](./API.md) mục 10.
+
+**Không** dùng `/health/ready` làm liveness: khi DB gián đoạn, mọi container sẽ bị khởi động lại liên tục mà không giải quyết được gì.
+
+**Docker:** `Dockerfile` đã khai báo `HEALTHCHECK` gọi `/health/live` (30 giây/lần, timeout 5 giây, chờ khởi động 20 giây, 3 lần thất bại liên tiếp → `unhealthy`). Xem trạng thái: `docker inspect --format '{{.State.Health.Status}}' <container>`.
+
+**Kubernetes:**
+
+```yaml
+livenessProbe:
+  httpGet: { path: /health/live, port: 3000 }
+  initialDelaySeconds: 20
+  periodSeconds: 15
+  timeoutSeconds: 3
+readinessProbe:
+  httpGet: { path: /health/ready, port: 3000 }
+  periodSeconds: 10
+  timeoutSeconds: 5      # lớn hơn thời hạn kiểm tra DB (3 giây)
+  failureThreshold: 3
+```
+
+**Log:** mỗi lần probe tạo một dòng access log `info` `[HTTP][HealthController]`. Khi DB lỗi, mỗi lần `/health/ready` ghi ba dòng: `warn` từ `HealthService` (có lý do lỗi gốc trong `cause`), `error` access log và `error` từ `GlobalExceptionFilter`. Nếu log quá nhiều, giảm tần suất probe hoặc lọc theo tag ở hệ thống thu thập log.
 
 ### Mở rộng nhiều instance
 
@@ -133,7 +177,8 @@ Chưa có endpoint health. Trong lúc chờ bổ sung (`GET /health` kiểm tra 
 
 - [ ] Checklist bảo mật trong [SECURITY.md](./SECURITY.md) mục 7 đã hoàn tất.
 - [ ] Có cách chạy migration ở môi trường thật (mục 3).
-- [ ] Có health check và probe tương ứng.
+- [ ] Đã tạo tài khoản ADMIN đầu tiên (mục 3).
+- [ ] Probe của orchestrator trỏ đúng: liveness → `/health/live`, readiness → `/health/ready` (mục 5).
 - [ ] Log được thu thập tập trung.
 - [ ] DB có backup tự động và đã thử khôi phục.
 
@@ -142,7 +187,7 @@ Chưa có endpoint health. Trong lúc chờ bổ sung (`GET /health` kiểm tra 
 - [ ] CI xanh trên commit sẽ triển khai.
 - [ ] Đã đọc SQL của migration mới; migration tương thích với phiên bản đang chạy.
 - [ ] Migration chạy thành công trên staging.
-- [ ] Chạy migration production → triển khai image mới → kiểm tra `POST /auth/login` và một endpoint có đọc DB.
+- [ ] Chạy migration production → triển khai image mới → `GET /health/ready` trả `200` → kiểm tra `POST /auth/login`.
 - [ ] Theo dõi log `error` trong 15 phút đầu.
 
 **Rollback**

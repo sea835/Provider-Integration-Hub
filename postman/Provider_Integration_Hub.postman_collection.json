@@ -7,8 +7,297 @@
 	},
 	"item": [
 		{
+			"name": "Health",
+			"description": "Health check cho Docker / Kubernetes. Public, không tính rate limit.",
+			"auth": {
+				"type": "noauth"
+			},
+			"item": [
+				{
+					"name": "1. Liveness",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Status is ok\", function () {",
+									"    pm.expect(pm.response.json().status).to.eql(\"ok\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health/live",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"health",
+								"live"
+							]
+						},
+						"description": "Tiến trình còn sống. Không kiểm tra database."
+					},
+					"response": []
+				},
+				{
+					"name": "2. Readiness",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Database is up\", function () {",
+									"    pm.expect(pm.response.json().checks.database.status).to.eql(\"up\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health/ready",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"health",
+								"ready"
+							]
+						},
+						"description": "Sẵn sàng nhận traffic: kiểm tra kết nối database. Trả 503 nếu database không phản hồi."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Auth",
+			"description": "Đăng ký, đăng nhập, refresh token. Chạy \"2. Login (Admin)\" trước để có token cho nhóm Users.\n\nTài khoản ADMIN tạo bằng `npm run db:seed:admin`, sau đó điền vào biến adminEmail / adminPassword.",
+			"item": [
+				{
+					"name": "1. Register",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"const randomStr = Math.random().toString(36).substring(2, 8);",
+									"pm.variables.set(\"dynamicEmail\", `user_${Date.now()}_${randomStr}@example.com`);"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 201\", function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"pm.test(\"Registered user has role USER\", function () {",
+									"    pm.expect(pm.response.json().user.role).to.eql(\"USER\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/auth/register",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"register"
+							]
+						},
+						"description": "Đăng ký tài khoản mới. Luôn nhận role USER; gửi field role sẽ bị từ chối 400.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"{{dynamicEmail}}\",\n    \"password\": \"SecurePassword123!\"\n}"
+						},
+						"auth": {
+							"type": "noauth"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "2. Login (Admin)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response has token pair\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('accessToken');",
+									"    pm.expect(jsonData).to.have.property('refreshToken');",
+									"",
+									"    // Lưu token cho các request cần xác thực (auth của collection dùng {{accessToken}})",
+									"    pm.collectionVariables.set(\"accessToken\", jsonData.accessToken);",
+									"    pm.collectionVariables.set(\"refreshToken\", jsonData.refreshToken);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/auth/login",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"login"
+							]
+						},
+						"description": "Đăng nhập bằng tài khoản ADMIN, lưu accessToken / refreshToken vào biến collection.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"{{adminEmail}}\",\n    \"password\": \"{{adminPassword}}\"\n}"
+						},
+						"auth": {
+							"type": "noauth"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "3. Me",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Password is never returned\", function () {",
+									"    pm.expect(pm.response.json()).to.not.have.property('password');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/auth/me",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"me"
+							]
+						},
+						"description": "Thông tin tài khoản đang đăng nhập."
+					},
+					"response": []
+				},
+				{
+					"name": "4. Refresh Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response has token pair\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('accessToken');",
+									"    pm.expect(jsonData).to.have.property('refreshToken');",
+									"",
+									"    // Lưu token cho các request cần xác thực (auth của collection dùng {{accessToken}})",
+									"    pm.collectionVariables.set(\"accessToken\", jsonData.accessToken);",
+									"    pm.collectionVariables.set(\"refreshToken\", jsonData.refreshToken);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/auth/refresh",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"refresh"
+							]
+						},
+						"description": "Đổi refresh token lấy cặp token mới. Refresh token cũ bị thu hồi ngay (rotation).",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"refreshToken\": \"{{refreshToken}}\"\n}"
+						},
+						"auth": {
+							"type": "noauth"
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
 			"name": "Users",
-			"description": "Quản lý người dùng kế thừa từ BaseController",
+			"description": "Quản trị người dùng. Chỉ role ADMIN — chạy \"Auth / 2. Login (Admin)\" trước.",
 			"item": [
 				{
 					"name": "1. Create User",
@@ -55,7 +344,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"email\": \"{{dynamicEmail}}\",\n    \"password\": \"SecurePassword123!\",\n    \"status\": \"ACTIVE\",\n    \"metadata\": {\n        \"source\": \"postman\",\n        \"role\": \"admin\"\n    }\n}"
+							"raw": "{\n    \"email\": \"{{dynamicEmail}}\",\n    \"password\": \"SecurePassword123!\",\n    \"role\": \"USER\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/users",
@@ -66,7 +355,7 @@
 								"users"
 							]
 						},
-						"description": "Tạo mới một User. Script pre-request tự sinh email ngẫu nhiên để tránh lỗi unique constraint của PostgreSQL. Script test tự lưu id vào biến {{userId}}."
+						"description": "Tạo mới một User (chỉ ADMIN). Script pre-request tự sinh email ngẫu nhiên để tránh trùng unique constraint. Script test tự lưu id vào biến {{userId}}."
 					},
 					"response": []
 				},
@@ -157,9 +446,9 @@
 									"    pm.response.to.have.status(200);",
 									"});",
 									"",
-									"pm.test(\"User updated successfully\", function () {",
+									"pm.test(\"User role updated\", function () {",
 									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.status).to.eql(\"INACTIVE\");",
+									"    pm.expect(jsonData.role).to.eql(\"MANAGER\");",
 									"});"
 								],
 								"type": "text/javascript"
@@ -176,7 +465,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"status\": \"INACTIVE\",\n    \"metadata\": {\n        \"source\": \"postman_update\",\n        \"note\": \"Updated status to INACTIVE\"\n    }\n}"
+							"raw": "{\n    \"role\": \"MANAGER\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/users/{{userId}}",
@@ -188,7 +477,7 @@
 								"{{userId}}"
 							]
 						},
-						"description": "Cập nhật thông tin User theo id (dùng method PATCH)."
+						"description": "Cập nhật email / mật khẩu / role của người dùng (chỉ ADMIN)."
 					},
 					"response": []
 				},
@@ -262,6 +551,42 @@
 					"response": []
 				}
 			]
+		},
+		{
+			"name": "Logout",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Logout succeeded\", function () {",
+							"    pm.expect(pm.response.json().success).to.be.true;",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/auth/logout",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"auth",
+						"logout"
+					]
+				},
+				"description": "Thu hồi phiên hiện tại. Đặt cuối collection để các request phía trên vẫn dùng được token."
+			},
+			"response": []
 		}
 	],
 	"variable": [
@@ -274,6 +599,26 @@
 			"key": "userId",
 			"value": "",
 			"type": "string"
+		},
+		{
+			"key": "accessToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "refreshToken",
+			"value": "",
+			"type": "string"
 		}
-	]
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{accessToken}}",
+				"type": "string"
+			}
+		]
+	}
 }

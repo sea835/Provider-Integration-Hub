@@ -17,6 +17,7 @@ Kiến trúc **đích** cho module mới (entity có hành vi, mapper, value obj
                          │     ├──► UserRepositoryPort    ◄── UserRepository    (Drizzle) ─► PostgreSQL
                          │     ├──► SessionRepositoryPort ◄── SessionRepository (Drizzle) ─► PostgreSQL
                          │     ├──► TokenPort             ◄── JwtTokenAdapter   (@nestjs/jwt)
+                         │     ├──► DatabaseHealthPort    ◄── DrizzleDatabaseHealthAdapter ─► PostgreSQL (select 1)
                          │     └──► LoggerPort            ◄── TaggedLoggerAdapter ─► stdout/stderr
                          └────────────────────────────────────────────────────┘   (adapter ra)
 ```
@@ -41,7 +42,7 @@ Hạ tầng dùng chung toàn app nằm ngoài module:
 | `src/common/base` | Lớp cơ sở CRUD và `baseSchema` (mục 7) |
 | `src/common/filters` | `GlobalExceptionFilter`, interface `ApiErrorResponse` |
 | `src/common/logger` | `LoggerPort`, `LogLayer` — chỉ có port |
-| `src/infrastructure/database` | Pool `pg`, instance Drizzle, config drizzle-kit, script migrate |
+| `src/infrastructure/database` | Pool `pg`, instance Drizzle, config drizzle-kit, script `migrate.ts`, script `seed-admin.ts` |
 | `src/infrastructure/logger` | `TaggedLoggerAdapter`, registry, request id, access log, bridge log của Nest |
 
 ---
@@ -55,8 +56,9 @@ AppModule
 │                              → middleware RequestIdMiddleware cho mọi route
 ├── DrizzleModule     @Global  → DRIZZLE (NodePgDatabase), DRIZZLE_POOL (pg.Pool)
 ├── UserModule                 → exports: UserService, UserRepositoryPort
-└── AuthModule                 → imports: JwtModule, UserModule
-                               → exports: AuthService, TokenPort, SessionRepositoryPort, JwtAuthGuard, RolesGuard
+├── AuthModule                 → imports: JwtModule, UserModule
+│                              → exports: AuthService, TokenPort, SessionRepositoryPort, JwtAuthGuard, RolesGuard
+└── HealthModule               → DatabaseHealthPort (không export gì)
 
 Provider global khai báo trong AppModule:
   APP_FILTER  GlobalExceptionFilter
@@ -71,6 +73,7 @@ Provider global khai báo trong AppModule:
 | `UserRepositoryPort` | `modules/user/domain` | `UserRepository` | `UserModule` |
 | `SessionRepositoryPort` | `modules/auth/domain` | `SessionRepository` | `AuthModule` |
 | `TokenPort` | `modules/auth/domain` | `JwtTokenAdapter` | `AuthModule` |
+| `DatabaseHealthPort` | `modules/health/domain` | `DrizzleDatabaseHealthAdapter` | `HealthModule` |
 
 Port là **abstract class** để vừa làm hợp đồng vừa làm DI token (interface TypeScript biến mất lúc runtime). `UserModule` giữ thêm alias token chuỗi `'IUserRepository'` (`useExisting: UserRepositoryPort`) cho code cũ.
 
@@ -83,6 +86,11 @@ Port là **abstract class** để vừa làm hợp đồng vừa làm DI token (
 - `UserResponseDto` — DTO của **tầng presentation** module `user`, dùng làm kiểu trả về của `AuthService`.
 
 Hai điểm sau vi phạm quy tắc "chỉ dùng thứ module khác export" và "application không phụ thuộc presentation" — xem mục 8.
+
+Phụ thuộc qua decorator và hằng số (chấp nhận được, chỉ là metadata / giá trị thuần):
+
+- `UserController` dùng `@Roles` của `auth`; `HealthController` dùng `@Public` của `auth`.
+- `@Roles`, DTO của `user` và `AuthService` dùng hằng `Role` / kiểu `RoleType` ở `modules/user/domain/user-role.ts` — nguồn duy nhất cho danh sách role.
 
 ---
 
@@ -99,7 +107,7 @@ Client
   │   lấy x-request-id từ header (≤128 ký tự) hoặc sinh UUIDv7,
   │   set response header, mở AsyncLocalStorage cho phần còn lại của request
   ▼
-[Guard 1] ThrottlerGuard      vượt giới hạn → 429
+[Guard 1] ThrottlerGuard      bỏ qua nếu @SkipThrottle(); vượt giới hạn → 429
 [Guard 2] JwtAuthGuard        bỏ qua nếu @Public(); không có / sai Bearer token → 401; gắn payload vào req.user
 [Guard 3] RolesGuard          bỏ qua nếu không có @Roles(); sai role → 403
   │
@@ -163,14 +171,25 @@ Quy ước: **service là nơi dịch lỗi nghiệp vụ sang HTTP exception**.
 ### 5.4. Xác thực & phân quyền
 
 - `JwtAuthGuard` chạy **global**: mọi route mặc định yêu cầu Bearer access token; mở bằng `@Public()` ở method hoặc class.
-- `RolesGuard` chạy global, chỉ có tác dụng khi route gắn `@Roles('ADMIN', ...)`.
+- `RolesGuard` chạy global, chỉ có tác dụng khi route (method hoặc class) gắn `@Roles(...)`. Tham số có kiểu `RoleType`, gõ sai tên role sẽ lỗi biên dịch.
+- Role được đọc từ **payload JWT** (`req.user.role`), không truy vấn DB → đổi role chỉ có hiệu lực từ access token kế tiếp.
 - `@CurrentUser()` / `@CurrentUser('sub')` lấy payload token từ `req.user`.
+
+Ma trận quyền hiện tại:
+
+| Route | Yêu cầu |
+|---|---|
+| `POST /auth/register`, `/auth/login`, `/auth/refresh`, `GET /health/*` | Public |
+| `POST /auth/logout`, `GET /auth/me` | Đăng nhập (mọi role) |
+| `/users` (toàn bộ) | Role `ADMIN` — khai báo một lần ở cấp class `UserController` |
+
+Tự đăng ký luôn nhận role `USER`. Tài khoản `ADMIN` đầu tiên tạo bằng `npm run db:seed:admin`; sau đó ADMIN cấp role cho người khác qua `POST/PATCH /users`.
 
 Luồng token, session, refresh rotation: [SECURITY.md](./SECURITY.md).
 
 ### 5.5. Rate limit
 
-`ThrottlerGuard` global, lưu đếm **trong bộ nhớ process**, khoá theo IP (`req.ip`). Mặc định 100 req / 60 giây; `register` và `login` ghi đè 10 req / 60 giây bằng `@Throttle`.
+`ThrottlerGuard` global, lưu đếm **trong bộ nhớ process**, khoá theo IP (`req.ip`). Mặc định 100 req / 60 giây; `register` và `login` ghi đè 10 req / 60 giây bằng `@Throttle`; `HealthController` bỏ qua hoàn toàn bằng `@SkipThrottle()` (probe gọi liên tục từ cùng một IP).
 
 ### 5.6. Cấu hình
 
@@ -179,6 +198,21 @@ Không dùng `@nestjs/config`. `dotenv.config()` được gọi ở `main.ts`, `
 ### 5.7. Database
 
 Một `pg.Pool` dùng chung (`max: 20`, `idleTimeoutMillis: 30000`, `connectionTimeoutMillis: 5000`), bọc bởi Drizzle, inject qua token `DRIZZLE`. `DrizzleModule` đóng pool khi app shutdown (`enableShutdownHooks`). Schema và migration: [DATABASE.md](./DATABASE.md).
+
+### 5.8. Health check
+
+Module `health` theo đúng cấu trúc hexagonal:
+
+```
+HealthController (@Public, @SkipThrottle)
+  ├─ GET /health/live   → HealthService.getLiveness()     không chạm phụ thuộc ngoài
+  └─ GET /health/ready  → HealthService.checkReadiness()
+                              └─ DatabaseHealthPort.ping()  ◄── DrizzleDatabaseHealthAdapter: select 1
+                                   ├─ OK trong 3 giây   → 200 { status: 'ok', checks: { database: 'up' } }
+                                   └─ lỗi / quá 3 giây  → 503 (ServiceUnavailableException, định dạng ApiErrorResponse)
+```
+
+Lý do lỗi DB (kể cả lỗi gốc trong `cause`) chỉ ghi log `[APP][Health][HealthService]`, không trả ra response vì endpoint là public. Cách dùng cho Docker/Kubernetes: [DEPLOYMENT.md](./DEPLOYMENT.md) mục 5.
 
 ---
 
@@ -262,7 +296,8 @@ Hướng xử lý đề xuất: tách hàm băm mật khẩu thành `PasswordHas
 
 - **Thêm module mới:** theo [huong-dan-tao-module.md](huong-dan/huong-dan-tao-module.md), nhưng dùng **port abstract class** (như `UserRepositoryPort`) thay cho token chuỗi `'I<Name>Repository'`, và DTO + response DTO riêng thay cho `BaseController`.
 - **Gọi hệ thống ngoài (API bên thứ ba):** khai báo port ở `application/`, adapter ở `infrastructure/`, logger tag `[INFRA]`. Không gọi `fetch`/SDK trực tiếp trong service.
-- **Endpoint cần quyền:** không gắn `@Public()`; thêm `@Roles(Role.ADMIN)` nếu cần giới hạn role.
+- **Endpoint cần quyền:** không gắn `@Public()`; thêm `@Roles(Role.ADMIN)` (hoặc nhiều role: `@Roles(Role.ADMIN, Role.MANAGER)`) ở method hoặc class. `Role` import từ `@modules/user/domain/user-role`, `Roles` từ `@modules/auth/presentation/decorators/roles.decorator`.
+- **Thêm role mới:** bổ sung vào `Role` trong `user-role.ts` — validation của DTO và kiểu của `@Roles` tự cập nhật theo. Cột `users.role` là `varchar(50)`, không cần migration.
 
 ### Tài liệu cũ cần cập nhật
 

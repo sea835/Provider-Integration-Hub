@@ -27,4 +27,8 @@ COPY --chown=node:node --from=builder /usr/src/app/dist ./dist
 
 EXPOSE 3000
 
+# Liveness: không phụ thuộc DB để container không bị đánh dấu hỏng chỉ vì DB tạm gián đoạn
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD wget -q -O /dev/null "http://127.0.0.1:${PORT}/health/live" || exit 1
+
 CMD ["node", "dist/main"]

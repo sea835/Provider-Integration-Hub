@@ -1,5 +1,14 @@
-import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import {
+  IsEmail,
+  IsIn,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MinLength,
+} from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ROLE_VALUES } from '@modules/user/domain/user-role';
+import type { RoleType } from '@modules/user/domain/user-role';
 
 export class CreateUserDto {
   @ApiProperty({
@@ -18,4 +27,16 @@ export class CreateUserDto {
   @IsString({ message: 'Mật khẩu phải là chuỗi ký tự' })
   @MinLength(6, { message: 'Mật khẩu phải có ít nhất 6 ký tự' })
   password: string;
+
+  @ApiPropertyOptional({
+    example: 'USER',
+    description: 'Vai trò người dùng',
+    enum: ROLE_VALUES,
+    default: 'USER',
+  })
+  @IsOptional()
+  @IsIn(ROLE_VALUES, {
+    message: 'Role chỉ có thể là ADMIN, USER hoặc MANAGER',
+  })
+  role?: RoleType;
 }

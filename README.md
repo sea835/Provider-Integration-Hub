@@ -60,6 +60,11 @@ npm install
 npm run db:migrate
 ```
 
+Tạo tài khoản ADMIN đầu tiên (đăng ký công khai luôn là `USER`, các API `/users` chỉ dành cho `ADMIN`):
+```bash
+ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD='Admin123!' npm run db:seed:admin
+```
+
 Các lệnh quản lý database khác:
 - `npm run db:generate`: Sinh migration file mới từ schema Drizzle
 - `npm run db:push`: Đẩy trực tiếp schema lên DB (dùng trong dev nhanh)
@@ -77,7 +82,9 @@ npm run start:prod
 
 ### 6. Xem tài liệu API (Swagger UI)
 Sau khi ứng dụng khởi chạy thành công, truy cập Swagger UI tại:
-👉 `http://localhost:3000/docs`
+👉 `http://localhost:3000/docs` (đăng nhập qua `POST /auth/login`, dán `accessToken` vào nút **Authorize**)
+
+Health check: `GET /health/live` (tiến trình còn sống), `GET /health/ready` (kết nối được database).
 
 ---
 

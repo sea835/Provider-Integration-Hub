@@ -20,6 +20,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "db:generate": "drizzle-kit generate --config=src/infrastructure/database/drizzle.config.ts",
     "db:migrate": "tsx src/infrastructure/database/migrate.ts",
+    "db:seed:admin": "tsx src/infrastructure/database/seed-admin.ts",
     "db:push": "drizzle-kit push --config=src/infrastructure/database/drizzle.config.ts",
     "db:studio": "drizzle-kit studio --config=src/infrastructure/database/drizzle.config.ts"
   },

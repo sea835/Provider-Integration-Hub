@@ -75,9 +75,11 @@ Schema: `src/modules/user/infrastructure/user.schema.ts`
 | *baseSchema* | | | Mục 2 |
 | `email` | `varchar(255)` | not null, **unique** | Email đăng nhập, phân biệt hoa thường |
 | `password` | `varchar(255)` | not null | Hash scrypt dạng `<salt hex>:<hash hex>` — không bao giờ lưu plain text |
-| `role` | `varchar(50)` | not null, default `'USER'` | `ADMIN` \| `USER` \| `MANAGER` (hằng `Role` trong schema; DB không ràng buộc giá trị) |
+| `role` | `varchar(50)` | not null, default `'USER'` | `ADMIN` \| `USER` \| `MANAGER` (hằng `Role` ở `src/modules/user/domain/user-role.ts`; DB không ràng buộc giá trị — validation nằm ở DTO) |
 
 `status` được dùng để chặn đăng nhập: chỉ `ACTIVE` mới đăng nhập/refresh được.
+
+`role` được ghi khi: tự đăng ký (luôn `USER`), ADMIN tạo/sửa qua `/users`, hoặc chạy `npm run db:seed:admin` (tạo mới hoặc nâng một email có sẵn lên `ADMIN`). Script seed ghi thẳng vào bảng bằng Drizzle, không đi qua API.
 
 > Email phân biệt hoa thường: `User@x.com` và `user@x.com` là hai tài khoản khác nhau. Nếu cần không phân biệt, chuẩn hoá về chữ thường trước khi lưu hoặc dùng unique index trên `lower(email)`.
 
@@ -132,7 +134,9 @@ Phân trang dùng `LIMIT/OFFSET` — chậm dần ở trang sâu. Khi cần, chu
 | Thư mục | Trạng thái git | Nội dung |
 |---|---|---|
 | `20260924044935_good_thunderbird` | Đã commit | Tạo bảng `users` (chưa có `role`) |
-| `20260924092202_huge_firebird` | **Chưa commit** | Tạo bảng `sessions`; thêm cột `users.role`; FK `sessions.user_id → users.id` |
+| `20260924092202_huge_firebird` | Đã commit | Tạo bảng `sessions`; thêm cột `users.role`; FK `sessions.user_id → users.id` |
+
+Phân quyền theo role và health check không thay đổi schema (không có migration mới).
 
 Các lệnh:
 
@@ -142,6 +146,7 @@ Các lệnh:
 | `npm run db:migrate` | Áp dụng migration chưa chạy (`tsx src/infrastructure/database/migrate.ts`) |
 | `npm run db:push` | Đẩy thẳng schema lên DB, **không** sinh migration — chỉ dùng thử nghiệm local |
 | `npm run db:studio` | Mở Drizzle Studio xem dữ liệu |
+| `npm run db:seed:admin` | Tạo / nâng quyền tài khoản ADMIN từ `ADMIN_EMAIL`, `ADMIN_PASSWORD` (chạy lại nhiều lần an toàn) |
 
 Drizzle không có migration ngược (down). Sửa sai bằng một migration mới — xem [huong-dan-migration.md](huong-dan/huong-dan-migration.md).
 

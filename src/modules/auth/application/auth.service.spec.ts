@@ -121,6 +121,26 @@ describe('AuthService', () => {
       expect(sessionRepository.create).toHaveBeenCalledTimes(1);
     });
 
+    it('nên luôn gán role USER cho tài khoản tự đăng ký', async () => {
+      userRepository.findByEmail.mockResolvedValue(null);
+      userRepository.create.mockResolvedValue(mockUser);
+      userRepository.findById.mockResolvedValue(mockUser);
+      tokenPort.generateTokens.mockResolvedValue({
+        accessToken: 'access-token-123',
+        refreshToken: 'refresh-token-123',
+        expiresIn: 900,
+      });
+
+      await authService.register({
+        email: 'newuser@example.com',
+        password: 'Password123!',
+      });
+
+      expect(userRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ role: 'USER' }),
+      );
+    });
+
     it('nên ném ConflictException khi email đã tồn tại', async () => {
       userRepository.findByEmail.mockResolvedValue(mockUser);
 

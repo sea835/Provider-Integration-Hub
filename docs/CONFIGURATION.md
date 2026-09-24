@@ -54,6 +54,21 @@ Sinh secret ngẫu nhiên:
 openssl rand -base64 48
 ```
 
+### Tạo ADMIN đầu tiên (chỉ script)
+
+Chỉ lệnh `npm run db:seed:admin` (hoặc `node dist/infrastructure/database/seed-admin.js`) đọc hai biến này — app **không** đọc.
+
+| Biến | Mặc định | Mô tả |
+|---|---|---|
+| `ADMIN_EMAIL` | **Bắt buộc khi chạy script** | Email tài khoản ADMIN. Chưa tồn tại → tạo mới; đã tồn tại → nâng lên ADMIN, giữ mật khẩu cũ |
+| `ADMIN_PASSWORD` | **Bắt buộc khi chạy script** | Mật khẩu (≥ 6 ký tự), chỉ dùng khi tạo mới |
+
+Truyền trực tiếp trên dòng lệnh thay vì lưu vào `.env`:
+
+```bash
+ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD='ChangeMe123!' npm run db:seed:admin
+```
+
 ---
 
 ## 3. File `.env` Mẫu Cho Local
@@ -97,6 +112,10 @@ Các giá trị sau chưa đọc từ biến môi trường. Muốn đổi phả
 | Key bị redact trong log | `password`, `token`, `accessToken`, `refreshToken`, `secret`, `authorization`, `apiKey` | `src/infrastructure/logger/logger.config.ts` |
 | Phân trang | mặc định 20, tối đa 100 | `src/common/base/pagination.dto.ts`, `base.repository.ts` |
 | Độ dài mật khẩu tối thiểu | 6 | DTO trong `modules/*/presentation/dto` |
+| Role được phép | `ADMIN`, `USER`, `MANAGER` | `src/modules/user/domain/user-role.ts` |
+| Role yêu cầu cho `/users` | `ADMIN` | `src/modules/user/presentation/user.controller.ts` |
+| Thời hạn kiểm tra DB của `/health/ready` | 3 000 ms | `src/modules/health/application/health.service.ts` |
+| Docker `HEALTHCHECK` | `/health/live`, mỗi 30 giây, timeout 5 giây, chờ khởi động 20 giây, 3 lần thất bại | `Dockerfile` |
 | Đường dẫn Swagger | `/docs` (luôn bật) | `src/main.ts` |
 | CORS | Cho phép mọi origin | `src/main.ts` |
 | Helmet | Tắt Content-Security-Policy | `src/main.ts` |

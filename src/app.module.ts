@@ -5,6 +5,7 @@ import { LoggerModule } from '@infrastructure/logger/logger.module';
 import { DrizzleModule } from '@infrastructure/database/drizzle.module';
 import { UserModule } from '@modules/user/user.module';
 import { AuthModule } from '@modules/auth/auth.module';
+import { HealthModule } from '@modules/health/health.module';
 import { JwtAuthGuard } from '@modules/auth/presentation/guards/jwt-auth.guard';
 import { RolesGuard } from '@modules/auth/presentation/guards/roles.guard';
 import { GlobalExceptionFilter } from '@common/filters/global-exception.filter';
@@ -21,6 +22,7 @@ import { GlobalExceptionFilter } from '@common/filters/global-exception.filter';
     DrizzleModule,
     UserModule,
     AuthModule,
+    HealthModule,
   ],
   controllers: [],
   providers: [

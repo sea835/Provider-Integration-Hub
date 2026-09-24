@@ -9,6 +9,7 @@ import { uuidv7 } from 'uuidv7';
 import { LoggerPort, LogLayer } from '@common/logger';
 import { UserRepositoryPort } from '@modules/user/domain/user.repository.port';
 import { UserService } from '@modules/user/application/user.service';
+import { Role } from '@modules/user/domain/user-role';
 import { UserResponseDto } from '@modules/user/presentation/dto/user.response';
 import { TokenPort } from '@modules/auth/domain/token.port';
 import { SessionRepositoryPort } from '@modules/auth/domain/session.repository.port';
@@ -44,11 +45,12 @@ export class AuthService {
       throw new ConflictException('Email đã tồn tại trong hệ thống');
     }
 
+    // Tự đăng ký luôn là USER; quyền cao hơn chỉ ADMIN cấp qua /users hoặc script db:seed:admin
     const hashedPassword = await UserService.hashPassword(cmd.password);
     const user = await this.userRepository.create({
       email: cmd.email,
       password: hashedPassword,
-      role: cmd.role || 'USER',
+      role: Role.USER,
       status: 'ACTIVE',
     });
 

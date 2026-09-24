@@ -1,12 +1,5 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsEmail,
-  IsIn,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  MinLength,
-} from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
 
 export class RegisterRequestDto {
   @ApiProperty({
@@ -25,17 +18,4 @@ export class RegisterRequestDto {
   @MinLength(6, { message: 'Mật khẩu phải có ít nhất 6 ký tự' })
   @IsNotEmpty({ message: 'Mật khẩu không được để trống' })
   password: string;
-
-  @ApiPropertyOptional({
-    example: 'USER',
-    description: 'Vai trò người dùng (ADMIN, USER, MANAGER)',
-    enum: ['ADMIN', 'USER', 'MANAGER'],
-    default: 'USER',
-  })
-  @IsOptional()
-  @IsString()
-  @IsIn(['ADMIN', 'USER', 'MANAGER'], {
-    message: 'Role chỉ có thể là ADMIN, USER hoặc MANAGER',
-  })
-  role?: string;
 }

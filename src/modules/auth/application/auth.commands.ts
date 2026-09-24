@@ -8,7 +8,6 @@ export interface LoginCommand {
 export interface RegisterCommand {
   email: string;
   password: string;
-  role?: string;
   ipAddress?: string;
   userAgent?: string;
 }

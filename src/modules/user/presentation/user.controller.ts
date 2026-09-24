@@ -14,7 +14,9 @@ import { CreateUserDto } from '@modules/user/presentation/dto/create-user.dto';
 import { UpdateUserDto } from '@modules/user/presentation/dto/update-user.dto';
 import { UserResponseDto } from '@modules/user/presentation/dto/user.response';
 import { PaginationQueryDto } from '@common/base/base.repository';
+import { Public } from '@modules/auth/presentation/decorators/public.decorator';
 
+@Public()
 @ApiTags('users')
 @Controller('users')
 export class UserController {

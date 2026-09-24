@@ -10,7 +10,7 @@ Tài liệu hướng dẫn quy trình tạo và thực thi migration cho cơ s�
 
 ### Bước 1: Cập nhật Schema
 Thêm mới hoặc chỉnh sửa các file schema theo đúng cấu trúc của module (được cấu hình theo pattern `./src/modules/**/infrastructure/*.schema.ts`).
-> **Ví dụ:** Chỉnh sửa file `src/modules/user/infrastructure/user.schema.ts`.
+> **Ví dụ:** Chỉnh sửa file `../../src/modules/user/infrastructure/user.schema.ts`.
 
 ### Bước 2: Phát sinh file Migration
 Chạy lệnh `generate` để so sánh các file schema hiện tại với snapshot database và tạo ra file `.sql` mới lưu tại thư mục `./drizzle/migrations`:

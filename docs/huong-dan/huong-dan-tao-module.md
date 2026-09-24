@@ -2,7 +2,7 @@
 
 Tài liệu hướng dẫn tạo một module (bounded context) mới trong dự án **Provider Integration Hub**, theo đúng cấu trúc hiện có của source và kiến trúc **DDD Hexagonal**.
 
-Module mẫu xuyên suốt tài liệu: **`provider`** — quản lý các nhà cung cấp tích hợp. Module tham chiếu có sẵn trong source: `src/modules/user`.
+Module mẫu xuyên suốt tài liệu: **`provider`** — quản lý các nhà cung cấp tích hợp. Module tham chiếu có sẵn trong source: `../../src/modules/user`.
 
 ---
 
@@ -74,7 +74,7 @@ src/modules/provider/
 
 ### Import
 
-Luôn dùng alias, không dùng đường dẫn tương đối `../../..`:
+Luôn dùng alias, không dùng đường dẫn tương đối `../../../..`:
 
 | Alias | Trỏ tới |
 |---|---|
@@ -232,7 +232,7 @@ export class ProviderService extends BaseService<ProviderEntity> {
 
 - Repository được inject qua **token chuỗi** `'I<Name>Repository'`, không inject thẳng class.
 - Service là nơi **duy nhất** chuyển domain error → exception của NestJS (`ConflictException`, `BadRequestException`...).
-- Logger theo tag `[APP][<BoundedContext>][<ClassName>]` — xem chi tiết tại [huong-dan-logging.md](./huong-dan-logging.md).
+- Logger theo tag `[APP][<BoundedContext>][<ClassName>]` — xem chi tiết tại [huong-dan-logging.md](huong-dan-logging.md).
 
 ### Bước 6: Presentation — Controller
 
@@ -294,7 +294,7 @@ import { ProviderRepository } from '@modules/provider/infrastructure/provider.re
 export class ProviderModule {}
 ```
 
-Thêm vào `src/app.module.ts`:
+Thêm vào `../../src/app.module.ts`:
 
 ```ts
 @Module({
@@ -313,7 +313,7 @@ npm run db:generate   # sinh file .sql trong ./drizzle/migrations — kiểm tra
 npm run db:migrate    # áp dụng vào database
 ```
 
-Quy trình và lưu ý chi tiết: [huong-dan-migration.md](./huong-dan-migration.md).
+Quy trình và lưu ý chi tiết: [huong-dan-migration.md](huong-dan-migration.md).
 
 ### Bước 9: Kiểm tra
 
@@ -359,7 +359,7 @@ describe('assertCanDeactivate', () => {
 **Cấu trúc**
 - [ ] Đủ 4 thư mục `domain / application / infrastructure / presentation` và file `<name>.module.ts`.
 - [ ] Tên file, class, bảng, route đúng quy ước ở mục 2.
-- [ ] Dùng alias `@common`, `@modules`, `@infrastructure` — không có `../../..`.
+- [ ] Dùng alias `@common`, `@modules`, `@infrastructure` — không có `../../../..`.
 
 **Domain**
 - [ ] Entity kế thừa `BaseEntity`, không có method.

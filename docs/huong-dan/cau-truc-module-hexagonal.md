@@ -4,7 +4,7 @@ Tài liệu mô tả **bộ khung đầy đủ** của một module theo **DDD +
 
 - Dùng làm **template** khi tạo module mới: copy cây thư mục ở mục 2, đổi `provider` thành tên module.
 - Module mẫu: **`provider`** — quản lý nhà cung cấp tích hợp (có mã, tên, URL, trạng thái, và cần kiểm tra kết nối tới hệ thống ngoài).
-- Các bước tạo module tương thích với base class hiện tại: xem [huong-dan-tao-module.md](./huong-dan-tao-module.md). Khác biệt giữa template này và source hiện tại: xem mục 7.
+- Các bước tạo module tương thích với base class hiện tại: xem [huong-dan-tao-module.md](huong-dan-tao-module.md). Khác biệt giữa template này và source hiện tại: xem mục 7.
 
 ---
 

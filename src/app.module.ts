@@ -4,6 +4,9 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { LoggerModule } from '@infrastructure/logger/logger.module';
 import { DrizzleModule } from '@infrastructure/database/drizzle.module';
 import { UserModule } from '@modules/user/user.module';
+import { AuthModule } from '@modules/auth/auth.module';
+import { JwtAuthGuard } from '@modules/auth/presentation/guards/jwt-auth.guard';
+import { RolesGuard } from '@modules/auth/presentation/guards/roles.guard';
 import { GlobalExceptionFilter } from '@common/filters/global-exception.filter';
 
 @Module({
@@ -17,6 +20,7 @@ import { GlobalExceptionFilter } from '@common/filters/global-exception.filter';
     LoggerModule,
     DrizzleModule,
     UserModule,
+    AuthModule,
   ],
   controllers: [],
   providers: [
@@ -27,6 +31,14 @@ import { GlobalExceptionFilter } from '@common/filters/global-exception.filter';
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
     },
   ],
 })

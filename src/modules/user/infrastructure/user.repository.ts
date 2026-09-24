@@ -7,9 +7,7 @@ import { DRIZZLE } from '@infrastructure/database/drizzle.provider';
 
 @Injectable()
 export class UserRepository extends BaseRepository<UserEntity> {
-    constructor(
-        @Inject(DRIZZLE) db: NodePgDatabase
-    ) {
-        super(db, users);
-    }
+  constructor(@Inject(DRIZZLE) db: NodePgDatabase) {
+    super(db, users);
+  }
 }

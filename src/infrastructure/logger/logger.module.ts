@@ -10,25 +10,29 @@ import { HttpLoggingInterceptor } from './http-logging.interceptor';
 
 @Global()
 @Module({
-    providers: [
-        {
-            provide: LoggerPort,
-            useFactory: () => loggerRegistry.getOrCreate([], () => new TaggedLoggerAdapter(loadLoggerConfig())),
-        },
-        {
-            provide: NestLoggerBridge,
-            useFactory: (logger: LoggerPort) => new NestLoggerBridge(logger),
-            inject: [LoggerPort],
-        },
-        {
-            provide: APP_INTERCEPTOR,
-            useClass: HttpLoggingInterceptor,
-        },
-    ],
-    exports: [LoggerPort, NestLoggerBridge],
+  providers: [
+    {
+      provide: LoggerPort,
+      useFactory: () =>
+        loggerRegistry.getOrCreate(
+          [],
+          () => new TaggedLoggerAdapter(loadLoggerConfig()),
+        ),
+    },
+    {
+      provide: NestLoggerBridge,
+      useFactory: (logger: LoggerPort) => new NestLoggerBridge(logger),
+      inject: [LoggerPort],
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: HttpLoggingInterceptor,
+    },
+  ],
+  exports: [LoggerPort, NestLoggerBridge],
 })
 export class LoggerModule implements NestModule {
-    configure(consumer: MiddlewareConsumer) {
-        consumer.apply(RequestIdMiddleware).forRoutes('*path');
-    }
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(RequestIdMiddleware).forRoutes('*path');
+  }
 }

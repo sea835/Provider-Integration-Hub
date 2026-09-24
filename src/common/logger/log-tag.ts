@@ -9,10 +9,10 @@
  * / phát domain event, việc log thuộc về application layer.
  */
 export const LogLayer = {
-    APPLICATION: 'APP',
-    INFRASTRUCTURE: 'INFRA',
-    PRESENTATION: 'HTTP',
-    SYSTEM: 'SYS',
+  APPLICATION: 'APP',
+  INFRASTRUCTURE: 'INFRA',
+  PRESENTATION: 'HTTP',
+  SYSTEM: 'SYS',
 } as const;
 
 export type LogLayer = (typeof LogLayer)[keyof typeof LogLayer];

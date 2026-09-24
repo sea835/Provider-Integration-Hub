@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 
 export interface RequestContextStore {
-    requestId: string;
+  requestId: string;
 }
 
 /**
@@ -9,13 +9,14 @@ export interface RequestContextStore {
  * để mọi log trong cùng request tự có tag [req:xxx] mà không cần truyền tay.
  */
 export class RequestContext {
-    private static readonly storage = new AsyncLocalStorage<RequestContextStore>();
+  private static readonly storage =
+    new AsyncLocalStorage<RequestContextStore>();
 
-    static run<T>(store: RequestContextStore, fn: () => T): T {
-        return this.storage.run(store, fn);
-    }
+  static run<T>(store: RequestContextStore, fn: () => T): T {
+    return this.storage.run(store, fn);
+  }
 
-    static get requestId(): string | undefined {
-        return this.storage.getStore()?.requestId;
-    }
+  static get requestId(): string | undefined {
+    return this.storage.getStore()?.requestId;
+  }
 }

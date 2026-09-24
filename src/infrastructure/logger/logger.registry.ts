@@ -10,26 +10,26 @@ import { LoggerPort } from '@common/logger';
  * Dữ liệu động đặt ở meta; requestId đã được lấy tự động từ RequestContext.
  */
 class LoggerRegistry {
-    private readonly instances = new Map<string, LoggerPort>();
+  private readonly instances = new Map<string, LoggerPort>();
 
-    getOrCreate(tags: readonly string[], factory: () => LoggerPort): LoggerPort {
-        const key = JSON.stringify(tags);
-        let instance = this.instances.get(key);
-        if (!instance) {
-            instance = factory();
-            this.instances.set(key, instance);
-        }
-        return instance;
+  getOrCreate(tags: readonly string[], factory: () => LoggerPort): LoggerPort {
+    const key = JSON.stringify(tags);
+    let instance = this.instances.get(key);
+    if (!instance) {
+      instance = factory();
+      this.instances.set(key, instance);
     }
+    return instance;
+  }
 
-    get size(): number {
-        return this.instances.size;
-    }
+  get size(): number {
+    return this.instances.size;
+  }
 
-    /** Chỉ dùng trong test */
-    clear(): void {
-        this.instances.clear();
-    }
+  /** Chỉ dùng trong test */
+  clear(): void {
+    this.instances.clear();
+  }
 }
 
 export const loggerRegistry = new LoggerRegistry();

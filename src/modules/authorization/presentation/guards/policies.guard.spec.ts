@@ -27,19 +27,19 @@ describe('PoliciesGuard', () => {
     );
   });
 
-  it('nên cho qua khi route không yêu cầu policy', () => {
+  it('nên cho qua khi route không yêu cầu policy', async () => {
     reflector.getAllAndOverride.mockReturnValue(undefined);
 
-    expect(guard.canActivate(createContext())).toBe(true);
+    expect(await guard.canActivate(createContext())).toBe(true);
   });
 
-  it('nên cho qua khi user thỏa mãn policy', () => {
+  it('nên cho qua khi user thỏa mãn policy', async () => {
     reflector.getAllAndOverride.mockReturnValue([
       (ability: any) => ability.can(Action.Manage, 'all'),
     ]);
 
     expect(
-      guard.canActivate(
+      await guard.canActivate(
         createContext({
           sub: '1',
           email: 'admin@example.com',
@@ -49,12 +49,12 @@ describe('PoliciesGuard', () => {
     ).toBe(true);
   });
 
-  it('nên ném ForbiddenException khi user không thỏa mãn policy', () => {
+  it('nên ném ForbiddenException khi user không thỏa mãn policy', async () => {
     reflector.getAllAndOverride.mockReturnValue([
       (ability: any) => ability.can(Action.Delete, UserEntity),
     ]);
 
-    expect(() =>
+    await expect(
       guard.canActivate(
         createContext({
           sub: '2',
@@ -62,15 +62,15 @@ describe('PoliciesGuard', () => {
           role: 'USER',
         }),
       ),
-    ).toThrow(ForbiddenException);
+    ).rejects.toThrow(ForbiddenException);
   });
 
-  it('nên ném ForbiddenException khi request không có user', () => {
+  it('nên ném ForbiddenException khi request không có user', async () => {
     reflector.getAllAndOverride.mockReturnValue([
       (ability: any) => ability.can(Action.Read, UserEntity),
     ]);
 
-    expect(() => guard.canActivate(createContext())).toThrow(
+    await expect(guard.canActivate(createContext())).rejects.toThrow(
       ForbiddenException,
     );
   });

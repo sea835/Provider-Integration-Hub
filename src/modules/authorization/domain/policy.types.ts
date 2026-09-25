@@ -1,8 +1,13 @@
 import { InferSubjects, MongoAbility } from '@casl/ability';
-import { UserEntity } from '@modules/user/domain/user.entity';
+import { BaseEntity } from '@common/base/base.entity';
 import { Action } from './action.enum';
 
-export type Subjects = InferSubjects<typeof UserEntity> | 'all';
+export type AnyEntityClass = new (...args: any[]) => any;
+export type Subjects =
+  | InferSubjects<typeof BaseEntity, true>
+  | AnyEntityClass
+  | string
+  | 'all';
 
 export type AppAbility = MongoAbility<[Action, Subjects]>;
 

@@ -47,6 +47,8 @@ Sao chép file cấu hình môi trường mẫu:
 cp .env.example .env
 ```
 
+> Sửa mật khẩu trong `DATABASE_URL` thành `password` (khớp `docker-compose.yml`) và thêm `JWT_SECRET`, `REFRESH_JWT_SECRET`. Xem [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
+
 ### 3. Khởi động Cơ sở dữ liệu (Docker)
 ```bash
 docker compose up -d
@@ -56,6 +58,11 @@ docker compose up -d
 ```bash
 npm install
 npm run db:migrate
+```
+
+Tạo tài khoản ADMIN đầu tiên (đăng ký công khai luôn là `USER`, các API `/users` chỉ dành cho `ADMIN`):
+```bash
+ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD='Admin123!' npm run db:seed:admin
 ```
 
 Các lệnh quản lý database khác:
@@ -75,7 +82,9 @@ npm run start:prod
 
 ### 6. Xem tài liệu API (Swagger UI)
 Sau khi ứng dụng khởi chạy thành công, truy cập Swagger UI tại:
-👉 `http://localhost:3000/docs`
+👉 `http://localhost:3000/docs` (đăng nhập qua `POST /auth/login`, dán `accessToken` vào nút **Authorize**)
+
+Health check: `GET /health/live` (tiến trình còn sống), `GET /health/ready` (kết nối được database).
 
 ---
 
@@ -99,8 +108,18 @@ npm run format
 
 ## 📚 Tài Liệu Hướng Dẫn Nội Bộ
 
-Tham khảo thêm các hướng dẫn chi tiết trong thư mục `docs/`:
-- [Cấu Trúc Module Hexagonal](docs/cau-truc-module-hexagonal.md): Quy chuẩn từng file trong một module DDD.
-- [Hướng Dẫn Tạo Module Mới](docs/huong-dan-tao-module.md): Các bước tạo nhanh module mới theo template.
-- [Hướng Dẫn Tiêu Chuẩn Logging](docs/huong-dan-logging.md): Quy ước format tag, levels, và redaction.
-- [Hướng Dẫn Quy Trình Migration](docs/huong-dan-migration.md): Quy trình quản lý thay đổi schema DB với Drizzle.
+Tài liệu hệ thống trong thư mục `docs/`:
+- [Tổng Quan Dự Án](docs/PROJECT.md): Mục tiêu, trạng thái hiện tại, vấn đề đã biết, hướng phát triển.
+- [Kiến Trúc](docs/ARCHITECTURE.md): Module, vòng đời request, port/adapter, cơ chế dùng chung.
+- [Đặc Tả API](docs/API.md): Xác thực, định dạng lỗi, rate limit, chi tiết từng endpoint.
+- [Cơ Sở Dữ Liệu](docs/DATABASE.md): Schema, quan hệ, index, lịch sử migration.
+- [Bảo Mật](docs/SECURITY.md): Luồng JWT + session, mật khẩu, phân quyền, rủi ro đã biết.
+- [Cấu Hình](docs/CONFIGURATION.md): Biến môi trường và cấu hình viết cứng.
+- [Phát Triển](docs/DEVELOPMENT.md): Cài đặt local, lệnh, quy ước code, kiểm thử.
+- [Triển Khai](docs/DEPLOYMENT.md): Docker, migration production, CI, vận hành.
+
+Hướng dẫn chuyên đề:
+- [Cấu Trúc Module Hexagonal](docs/huong-dan/cau-truc-module-hexagonal.md): Quy chuẩn từng file trong một module DDD.
+- [Hướng Dẫn Tạo Module Mới](docs/huong-dan/huong-dan-tao-module.md): Các bước tạo nhanh module mới theo template.
+- [Hướng Dẫn Tiêu Chuẩn Logging](docs/huong-dan/huong-dan-logging.md): Quy ước format tag, levels, và redaction.
+- [Hướng Dẫn Quy Trình Migration](docs/huong-dan/huong-dan-migration.md): Quy trình quản lý thay đổi schema DB với Drizzle.

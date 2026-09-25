@@ -2,13 +2,302 @@
 	"info": {
 		"_postman_id": "8b51d38e-01be-4d1d-b63c-3965b02660aa",
 		"name": "Provider Integration Hub API",
-		"description": "Postman Collection dùng để test toàn bộ các API hiện có trong dự án Provider Integration Hub (NestJS + Drizzle ORM).",
+		"description": "Postman Collection dùng để test toàn bộ các API hiện có trong dự án Provider Integration Hub (NestJS + Drizzle ORM + CASL Dynamic Authorization).",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
 		{
+			"name": "Health",
+			"description": "Health check cho Docker / Kubernetes. Public, không tính rate limit.",
+			"auth": {
+				"type": "noauth"
+			},
+			"item": [
+				{
+					"name": "1. Liveness",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Status is ok\", function () {",
+									"    pm.expect(pm.response.json().status).to.eql(\"ok\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health/live",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"health",
+								"live"
+							]
+						},
+						"description": "Tiến trình còn sống. Không kiểm tra database."
+					},
+					"response": []
+				},
+				{
+					"name": "2. Readiness",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Database is up\", function () {",
+									"    pm.expect(pm.response.json().checks.database.status).to.eql(\"up\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health/ready",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"health",
+								"ready"
+							]
+						},
+						"description": "Sẵn sàng nhận traffic: kiểm tra kết nối database. Trả 503 nếu database không phản hồi."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Auth",
+			"description": "Đăng ký, đăng nhập, refresh token. Chạy \"2. Login (Admin)\" trước để có token cho nhóm Users & Authorization.",
+			"item": [
+				{
+					"name": "1. Register",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"const randomStr = Math.random().toString(36).substring(2, 8);",
+									"pm.variables.set(\"dynamicEmail\", `user_${Date.now()}_${randomStr}@example.com`);"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 201\", function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"",
+									"pm.test(\"Registered user has role USER\", function () {",
+									"    pm.expect(pm.response.json().user.role).to.eql(\"USER\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/auth/register",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"register"
+							]
+						},
+						"description": "Đăng ký tài khoản mới. Luôn nhận role USER; gửi field role sẽ bị từ chối 400.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"{{dynamicEmail}}\",\n    \"password\": \"SecurePassword123!\"\n}"
+						},
+						"auth": {
+							"type": "noauth"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "2. Login (Admin)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response has token pair\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('accessToken');",
+									"    pm.expect(jsonData).to.have.property('refreshToken');",
+									"",
+									"    // Lưu token cho các request cần xác thực (auth của collection dùng {{accessToken}})",
+									"    pm.collectionVariables.set(\"accessToken\", jsonData.accessToken);",
+									"    pm.collectionVariables.set(\"refreshToken\", jsonData.refreshToken);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/auth/login",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"login"
+							]
+						},
+						"description": "Đăng nhập bằng tài khoản ADMIN, lưu accessToken / refreshToken vào biến collection.",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"{{adminEmail}}\",\n    \"password\": \"{{adminPassword}}\"\n}"
+						},
+						"auth": {
+							"type": "noauth"
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "3. Me",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Password is never returned\", function () {",
+									"    pm.expect(pm.response.json()).to.not.have.property('password');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/auth/me",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"me"
+							]
+						},
+						"description": "Thông tin tài khoản đang đăng nhập."
+					},
+					"response": []
+				},
+				{
+					"name": "4. Refresh Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response has token pair\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('accessToken');",
+									"    pm.expect(jsonData).to.have.property('refreshToken');",
+									"",
+									"    // Lưu token cho các request cần xác thực (auth của collection dùng {{accessToken}})",
+									"    pm.collectionVariables.set(\"accessToken\", jsonData.accessToken);",
+									"    pm.collectionVariables.set(\"refreshToken\", jsonData.refreshToken);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/auth/refresh",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"refresh"
+							]
+						},
+						"description": "Đổi refresh token lấy cặp token mới. Refresh token cũ bị thu hồi ngay (rotation).",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"refreshToken\": \"{{refreshToken}}\"\n}"
+						},
+						"auth": {
+							"type": "noauth"
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
 			"name": "Users",
-			"description": "Quản lý người dùng kế thừa từ BaseController",
+			"description": "Quản trị người dùng. Kiểm tra quyền CASL Manage UserEntity.",
 			"item": [
 				{
 					"name": "1. Create User",
@@ -55,7 +344,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"email\": \"{{dynamicEmail}}\",\n    \"password\": \"SecurePassword123!\",\n    \"status\": \"ACTIVE\",\n    \"metadata\": {\n        \"source\": \"postman\",\n        \"role\": \"admin\"\n    }\n}"
+							"raw": "{\n    \"email\": \"{{dynamicEmail}}\",\n    \"password\": \"SecurePassword123!\",\n    \"role\": \"USER\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/users",
@@ -66,7 +355,7 @@
 								"users"
 							]
 						},
-						"description": "Tạo mới một User. Script pre-request tự sinh email ngẫu nhiên để tránh lỗi unique constraint của PostgreSQL. Script test tự lưu id vào biến {{userId}}."
+						"description": "Tạo mới một User. Script pre-request tự sinh email ngẫu nhiên để tránh trùng unique constraint. Script test tự lưu id vào biến {{userId}}."
 					},
 					"response": []
 				},
@@ -157,9 +446,9 @@
 									"    pm.response.to.have.status(200);",
 									"});",
 									"",
-									"pm.test(\"User updated successfully\", function () {",
+									"pm.test(\"User role updated\", function () {",
 									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.status).to.eql(\"INACTIVE\");",
+									"    pm.expect(jsonData.role).to.eql(\"MANAGER\");",
 									"});"
 								],
 								"type": "text/javascript"
@@ -176,7 +465,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"status\": \"INACTIVE\",\n    \"metadata\": {\n        \"source\": \"postman_update\",\n        \"note\": \"Updated status to INACTIVE\"\n    }\n}"
+							"raw": "{\n    \"role\": \"MANAGER\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/users/{{userId}}",
@@ -188,7 +477,7 @@
 								"{{userId}}"
 							]
 						},
-						"description": "Cập nhật thông tin User theo id (dùng method PATCH)."
+						"description": "Cập nhật email / mật khẩu / role của người dùng."
 					},
 					"response": []
 				},
@@ -262,6 +551,584 @@
 					"response": []
 				}
 			]
+		},
+		{
+			"name": "Authorization",
+			"description": "Bộ API quản trị vai trò (Roles), danh mục quyền hạn (Permissions) và đồng bộ rules cho Frontend (CASL Dynamic Authorization).",
+			"item": [
+				{
+					"name": "Roles",
+					"description": "CRUD vai trò và gán quyền.",
+					"item": [
+						{
+							"name": "1. Create Role",
+							"event": [
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [
+											"const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();",
+											"pm.variables.set(\"dynamicRoleCode\", `ROLE_${Date.now()}_${randomSuffix}`);"
+										],
+										"type": "text/javascript"
+									}
+								},
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 201\", function () {",
+											"    pm.response.to.have.status(201);",
+											"});",
+											"",
+											"pm.test(\"Role created and has ID\", function () {",
+											"    var jsonData = pm.response.json();",
+											"    pm.expect(jsonData).to.have.property('id');",
+											"    pm.expect(jsonData).to.have.property('code');",
+											"    pm.collectionVariables.set(\"roleId\", jsonData.id);",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"code\": \"{{dynamicRoleCode}}\",\n    \"name\": \"Vai trò Thử nghiệm\",\n    \"description\": \"Tạo qua Postman Collection\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/authorization/roles",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"authorization",
+										"roles"
+									]
+								},
+								"description": "Tạo vai trò mới. Mã role được tự động viết in hoa."
+							},
+							"response": []
+						},
+						{
+							"name": "2. Get All Roles",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 200\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"pm.test(\"Returns an array of roles\", function () {",
+											"    var jsonData = pm.response.json();",
+											"    pm.expect(Array.isArray(jsonData)).to.be.true;",
+											"    pm.expect(jsonData.length).to.be.above(0);",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/authorization/roles",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"authorization",
+										"roles"
+									]
+								},
+								"description": "Lấy danh sách tất cả các vai trò."
+							},
+							"response": []
+						},
+						{
+							"name": "3. Get Role By ID",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 200\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"pm.test(\"Matches requested role ID\", function () {",
+											"    var jsonData = pm.response.json();",
+											"    pm.expect(jsonData.id).to.eql(pm.collectionVariables.get(\"roleId\"));",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/authorization/roles/{{roleId}}",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"authorization",
+										"roles",
+										"{{roleId}}"
+									]
+								},
+								"description": "Xem chi tiết một vai trò theo ID."
+							},
+							"response": []
+						},
+						{
+							"name": "4. Update Role",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 200\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"pm.test(\"Role name updated successfully\", function () {",
+											"    var jsonData = pm.response.json();",
+											"    pm.expect(jsonData.name).to.eql(\"Vai trò Đã Cập Nhật\");",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "PATCH",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Vai trò Đã Cập Nhật\",\n    \"description\": \"Mô tả đã được cập nhật\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/authorization/roles/{{roleId}}",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"authorization",
+										"roles",
+										"{{roleId}}"
+									]
+								},
+								"description": "Cập nhật tên và mô tả vai trò."
+							},
+							"response": []
+						},
+						{
+							"name": "5. Assign Permissions to Role",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 200 or 201\", function () {",
+											"    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+											"});",
+											"",
+											"pm.test(\"Assign permissions succeeded\", function () {",
+											"    var jsonData = pm.response.json();",
+											"    pm.expect(jsonData.success).to.be.true;",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"permissionIds\": [\n        \"{{permissionId}}\"\n    ]\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/authorization/roles/{{roleId}}/permissions",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"authorization",
+										"roles",
+										"{{roleId}}",
+										"permissions"
+									]
+								},
+								"description": "Gán danh sách các ID quyền hạn vào vai trò."
+							},
+							"response": []
+						},
+						{
+							"name": "6. Get Role Permissions",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 200\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"pm.test(\"Returns permissions array\", function () {",
+											"    var jsonData = pm.response.json();",
+											"    pm.expect(Array.isArray(jsonData)).to.be.true;",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/authorization/roles/{{roleId}}/permissions",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"authorization",
+										"roles",
+										"{{roleId}}",
+										"permissions"
+									]
+								},
+								"description": "Xem danh sách các quyền hạn đã gán vào vai trò."
+							},
+							"response": []
+						},
+						{
+							"name": "7. Delete Role",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 200\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"pm.test(\"Delete returned true\", function () {",
+											"    var jsonData = pm.response.json();",
+											"    pm.expect(jsonData.success).to.be.true;",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/authorization/roles/{{roleId}}",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"authorization",
+										"roles",
+										"{{roleId}}"
+									]
+								},
+								"description": "Xóa vai trò theo ID."
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Permissions",
+					"description": "Khai báo và xem danh mục quyền hạn trong hệ thống.",
+					"item": [
+						{
+							"name": "1. Create Permission",
+							"event": [
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [
+											"const randomSuffix = Math.random().toString(36).substring(2, 6);",
+											"pm.variables.set(\"dynamicSubject\", `TestSubject_${Date.now()}_${randomSuffix}`);"
+										],
+										"type": "text/javascript"
+									}
+								},
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 201\", function () {",
+											"    pm.response.to.have.status(201);",
+											"});",
+											"",
+											"pm.test(\"Permission created and has ID\", function () {",
+											"    var jsonData = pm.response.json();",
+											"    pm.expect(jsonData).to.have.property('id');",
+											"    pm.expect(jsonData).to.have.property('action');",
+											"    pm.expect(jsonData).to.have.property('subject');",
+											"    pm.collectionVariables.set(\"permissionId\", jsonData.id);",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"action\": \"read\",\n    \"subject\": \"{{dynamicSubject}}\",\n    \"conditions\": {\n        \"id\": \"${user.sub}\"\n    },\n    \"description\": \"Cho phép đọc dữ liệu của chính mình\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/authorization/permissions",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"authorization",
+										"permissions"
+									]
+								},
+								"description": "Tạo quyền hạn mới (hỗ trợ điều kiện ABAC qua trường conditions)."
+							},
+							"response": []
+						},
+						{
+							"name": "2. Get All Permissions",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 200\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"pm.test(\"Returns an array of permissions\", function () {",
+											"    var jsonData = pm.response.json();",
+											"    pm.expect(Array.isArray(jsonData)).to.be.true;",
+											"    pm.expect(jsonData.length).to.be.above(0);",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/authorization/permissions",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"authorization",
+										"permissions"
+									]
+								},
+								"description": "Lấy danh mục tất cả quyền hạn có trong hệ thống."
+							},
+							"response": []
+						},
+						{
+							"name": "3. Get Permission By ID",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 200\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"pm.test(\"Matches requested permission ID\", function () {",
+											"    var jsonData = pm.response.json();",
+											"    pm.expect(jsonData.id).to.eql(pm.collectionVariables.get(\"permissionId\"));",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/authorization/permissions/{{permissionId}}",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"authorization",
+										"permissions",
+										"{{permissionId}}"
+									]
+								},
+								"description": "Xem chi tiết một quyền hạn theo ID."
+							},
+							"response": []
+						},
+						{
+							"name": "4. Delete Permission",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 200\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"pm.test(\"Delete returned true\", function () {",
+											"    var jsonData = pm.response.json();",
+											"    pm.expect(jsonData.success).to.be.true;",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/authorization/permissions/{{permissionId}}",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"authorization",
+										"permissions",
+										"{{permissionId}}"
+									]
+								},
+								"description": "Xóa quyền hạn theo ID."
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Abilities (Frontend)",
+					"description": "Đồng bộ quyền hạn thời gian thực cho ứng dụng Frontend (React, Vue, Mobile).",
+					"item": [
+						{
+							"name": "1. Get My Abilities",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 200\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"pm.test(\"Response contains rules array\", function () {",
+											"    var jsonData = pm.response.json();",
+											"    pm.expect(jsonData).to.have.property('rules');",
+											"    pm.expect(Array.isArray(jsonData.rules)).to.be.true;",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/authorization/me/abilities",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"authorization",
+										"me",
+										"abilities"
+									]
+								},
+								"description": "Trả về bộ rules CASL đã được đóng gói qua packRules để Frontend nạp vào ability.update()."
+							},
+							"response": []
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Logout",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Logout succeeded\", function () {",
+							"    pm.expect(pm.response.json().success).to.be.true;",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/auth/logout",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"auth",
+						"logout"
+					]
+				},
+				"description": "Thu hồi phiên hiện tại. Đặt cuối collection để các request phía trên vẫn dùng được token."
+			},
+			"response": []
 		}
 	],
 	"variable": [
@@ -274,6 +1141,36 @@
 			"key": "userId",
 			"value": "",
 			"type": "string"
+		},
+		{
+			"key": "roleId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "permissionId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "accessToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "refreshToken",
+			"value": "",
+			"type": "string"
 		}
-	]
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{accessToken}}",
+				"type": "string"
+			}
+		]
+	}
 }

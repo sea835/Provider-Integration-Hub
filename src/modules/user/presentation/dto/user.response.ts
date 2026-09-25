@@ -15,6 +15,12 @@ export class UserResponseDto {
   email: string;
 
   @ApiProperty({
+    example: 'USER',
+    description: 'Vai trò người dùng trong hệ thống (ADMIN, USER, MANAGER)',
+  })
+  role: string;
+
+  @ApiProperty({
     example: 'ACTIVE',
     description: 'Trạng thái người dùng',
   })
@@ -54,6 +60,7 @@ export class UserResponseDto {
     const dto = new UserResponseDto();
     dto.id = user.id;
     dto.email = user.email;
+    dto.role = user.role || 'USER';
     dto.status = user.status;
     dto.createdAt = user.createdAt;
     dto.updatedAt = user.updatedAt;

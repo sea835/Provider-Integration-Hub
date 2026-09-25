@@ -8,14 +8,19 @@ import {
   Delete,
   Query,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { UserService } from '@modules/user/application/user.service';
+import { UserEntity } from '@modules/user/domain/user.entity';
 import { CreateUserDto } from '@modules/user/presentation/dto/create-user.dto';
 import { UpdateUserDto } from '@modules/user/presentation/dto/update-user.dto';
 import { UserResponseDto } from '@modules/user/presentation/dto/user.response';
 import { PaginationQueryDto } from '@common/base/base.repository';
+import { CheckPolicies } from '@modules/authorization/presentation/decorators/check-policies.decorator';
+import { Action } from '@modules/authorization/domain/action.enum';
 
+@CheckPolicies((ability) => ability.can(Action.Manage, UserEntity))
 @ApiTags('users')
+@ApiBearerAuth()
 @Controller('users')
 export class UserController {
   constructor(private readonly userService: UserService) {}

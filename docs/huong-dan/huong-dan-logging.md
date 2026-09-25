@@ -38,7 +38,7 @@ Có thể thêm tag thứ 4 khi một component có nhiều luồng con rõ rệ
 | Tag | Hằng số | Dùng ở | Ví dụ |
 |---|---|---|---|
 | `[APP]` | `LogLayer.APPLICATION` | `modules/*/application` — service, use case | `[APP][User][UserService]` |
-| `[INFRA]` | `LogLayer.INFRASTRUCTURE` | `modules/*/infrastructure`, `src/infrastructure` — repository, client gọi provider ngoài, queue | `[INFRA][Provider][VnpayClient]` |
+| `[INFRA]` | `LogLayer.INFRASTRUCTURE` | `modules/*/infrastructure`, `../../src/infrastructure` — repository, client gọi provider ngoài, queue | `[INFRA][Provider][VnpayClient]` |
 | `[HTTP]` | `LogLayer.PRESENTATION` | Access log tự động của `HttpLoggingInterceptor` | `[HTTP][UserController]` |
 | `[SYS]` | `LogLayer.SYSTEM` | Log nội bộ của NestJS (bootstrap, route mapping, exception handler) — tự động | `[SYS][RoutesResolver]` |
 
@@ -91,7 +91,7 @@ this.logger.debug('Request payload built', { payload });
 
 ### Về instance logger
 
-`child()` **không tạo instance mới** mỗi lần gọi. Mọi logger được lưu trong registry global (`src/infrastructure/logger/logger.registry.ts`), mỗi bộ tag chỉ có đúng 1 instance cho toàn app:
+`child()` **không tạo instance mới** mỗi lần gọi. Mọi logger được lưu trong registry global (`../../src/infrastructure/logger/logger.registry.ts`), mỗi bộ tag chỉ có đúng 1 instance cho toàn app:
 
 ```ts
 logger.child('APP', 'User', 'UserService') === logger.child('APP').child('User').child('UserService'); // true
@@ -154,13 +154,13 @@ Tuy vậy vẫn phải tuân thủ:
 
 - **Không** đưa dữ liệu nhạy cảm vào **message** — redact chỉ áp dụng cho `meta`.
 - **Không** log nguyên request body / response của provider ở level `info`. Nếu cần, dùng `debug` và chỉ chọn các field cần thiết.
-- Cần redact thêm key mới → bổ sung vào `DEFAULT_REDACT_KEYS` trong `src/infrastructure/logger/logger.config.ts`.
+- Cần redact thêm key mới → bổ sung vào `DEFAULT_REDACT_KEYS` trong `../../src/infrastructure/logger/logger.config.ts`.
 
 ---
 
 ## 8. Cấu Hình
 
-Khai báo trong `.env`:
+Khai báo trong `../../.env`:
 
 | Biến | Giá trị | Mặc định |
 |---|---|---|

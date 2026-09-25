@@ -14,6 +14,7 @@ import {
 export abstract class UserRepositoryPort {
   abstract create(data: Partial<UserEntity>): Promise<UserEntity>;
   abstract findById(id: string): Promise<UserEntity | null>;
+  abstract findByEmail(email: string): Promise<UserEntity | null>;
   abstract findAll(params?: PaginationQueryDto): Promise<UserEntity[]>;
   abstract findPaginated?(
     params?: PaginationQueryDto,

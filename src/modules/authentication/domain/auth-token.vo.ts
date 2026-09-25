@@ -1,5 +1,5 @@
 export interface TokenPayload {
-  sub: string; // userId (UUIDv7)
+  sub: string;
   email: string;
   role: string;
   sessionId?: string;
@@ -8,5 +8,5 @@ export interface TokenPayload {
 export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
-  expiresIn: number; // thời gian sống tính bằng giây
+  expiresIn: number;
 }

@@ -10,14 +10,14 @@ import {
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
-import { AuthService } from '@modules/auth/application/auth.service';
-import { Public } from '@modules/auth/presentation/decorators/public.decorator';
-import { CurrentUser } from '@modules/auth/presentation/decorators/current-user.decorator';
-import type { TokenPayload } from '@modules/auth/domain/auth-token.vo';
-import { LoginRequestDto } from '@modules/auth/presentation/dto/login.request';
-import { RegisterRequestDto } from '@modules/auth/presentation/dto/register.request';
-import { RefreshTokenRequestDto } from '@modules/auth/presentation/dto/refresh-token.request';
-import { AuthResponseDto } from '@modules/auth/presentation/dto/auth.response';
+import { AuthService } from '@modules/authentication/application/auth.service';
+import { Public } from '@modules/authentication/presentation/decorators/public.decorator';
+import { CurrentUser } from '@modules/authentication/presentation/decorators/current-user.decorator';
+import type { TokenPayload } from '@modules/authentication/domain/auth-token.vo';
+import { LoginRequestDto } from '@modules/authentication/presentation/dto/login.request';
+import { RegisterRequestDto } from '@modules/authentication/presentation/dto/register.request';
+import { RefreshTokenRequestDto } from '@modules/authentication/presentation/dto/refresh-token.request';
+import { AuthResponseDto } from '@modules/authentication/presentation/dto/auth.response';
 import { UserResponseDto } from '@modules/user/presentation/dto/user.response';
 
 @ApiTags('auth')

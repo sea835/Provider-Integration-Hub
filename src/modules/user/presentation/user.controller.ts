@@ -10,15 +10,15 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { UserService } from '@modules/user/application/user.service';
-import { Role } from '@modules/user/domain/user-role';
+import { UserEntity } from '@modules/user/domain/user.entity';
 import { CreateUserDto } from '@modules/user/presentation/dto/create-user.dto';
 import { UpdateUserDto } from '@modules/user/presentation/dto/update-user.dto';
 import { UserResponseDto } from '@modules/user/presentation/dto/user.response';
 import { PaginationQueryDto } from '@common/base/base.repository';
-import { Roles } from '@modules/auth/presentation/decorators/roles.decorator';
+import { CheckPolicies } from '@modules/authorization/presentation/decorators/check-policies.decorator';
+import { Action } from '@modules/authorization/domain/action.enum';
 
-// Quản trị người dùng: chỉ ADMIN. Người dùng tự xem thông tin của mình qua GET /auth/me.
-@Roles(Role.ADMIN)
+@CheckPolicies((ability) => ability.can(Action.Manage, UserEntity))
 @ApiTags('users')
 @ApiBearerAuth()
 @Controller('users')

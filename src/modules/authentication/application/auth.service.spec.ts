@@ -4,14 +4,14 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
-import { AuthService } from '@modules/auth/application/auth.service';
+import { AuthService } from '@modules/authentication/application/auth.service';
 import { UserRepositoryPort } from '@modules/user/domain/user.repository.port';
-import { SessionRepositoryPort } from '@modules/auth/domain/session.repository.port';
-import { TokenPort } from '@modules/auth/domain/token.port';
+import { SessionRepositoryPort } from '@modules/authentication/domain/session.repository.port';
+import { TokenPort } from '@modules/authentication/domain/token.port';
 import { LoggerPort } from '@common/logger';
 import { UserService } from '@modules/user/application/user.service';
 import { UserEntity } from '@modules/user/domain/user.entity';
-import { SessionEntity } from '@modules/auth/domain/session.entity';
+import { SessionEntity } from '@modules/authentication/domain/session.entity';
 
 describe('AuthService', () => {
   let authService: AuthService;
@@ -23,7 +23,7 @@ describe('AuthService', () => {
   const mockUser: UserEntity = {
     id: '0192f3a1-8e9a-7c3d-b4ef-123456789abc',
     email: 'test@example.com',
-    password: '', // will be set in beforeEach
+    password: '',
     role: 'USER',
     status: 'ACTIVE',
     createdAt: new Date(),
@@ -36,7 +36,7 @@ describe('AuthService', () => {
   const mockSession: SessionEntity = {
     id: '0192f3a1-9999-7c3d-b4ef-123456789abc',
     userId: mockUser.id,
-    refreshTokenHash: '', // will be set in beforeEach
+    refreshTokenHash: '',
     ipAddress: '127.0.0.1',
     userAgent: 'Jest Test Agent',
     expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),

@@ -11,13 +11,13 @@ import { UserRepositoryPort } from '@modules/user/domain/user.repository.port';
 import { UserService } from '@modules/user/application/user.service';
 import { Role } from '@modules/user/domain/user-role';
 import { UserResponseDto } from '@modules/user/presentation/dto/user.response';
-import { TokenPort } from '@modules/auth/domain/token.port';
-import { SessionRepositoryPort } from '@modules/auth/domain/session.repository.port';
+import { TokenPort } from '@modules/authentication/domain/token.port';
+import { SessionRepositoryPort } from '@modules/authentication/domain/session.repository.port';
 import {
   LoginCommand,
   RegisterCommand,
   RefreshTokenCommand,
-} from '@modules/auth/application/auth.commands';
+} from '@modules/authentication/application/auth.commands';
 
 export interface AuthResult {
   accessToken: string;
@@ -45,7 +45,6 @@ export class AuthService {
       throw new ConflictException('Email đã tồn tại trong hệ thống');
     }
 
-    // Tự đăng ký luôn là USER; quyền cao hơn chỉ ADMIN cấp qua /users hoặc script db:seed:admin
     const hashedPassword = await UserService.hashPassword(cmd.password);
     const user = await this.userRepository.create({
       email: cmd.email,
@@ -71,7 +70,6 @@ export class AuthService {
   async login(cmd: LoginCommand): Promise<AuthResult> {
     const user = await this.userRepository.findByEmail(cmd.email);
 
-    // Chống User Enumeration: dù sai email hay sai password đều trả về cùng một thông điệp
     if (!user) {
       throw new UnauthorizedException('Email hoặc mật khẩu không chính xác');
     }
@@ -84,7 +82,6 @@ export class AuthService {
       throw new UnauthorizedException('Email hoặc mật khẩu không chính xác');
     }
 
-    // Kiểm tra trạng thái tài khoản
     if (user.status !== 'ACTIVE') {
       throw new ForbiddenException(
         'Tài khoản của bạn đã bị vô hiệu hóa hoặc tạm khóa',
@@ -132,12 +129,10 @@ export class AuthService {
       );
     }
 
-    // Thu hồi session cũ (Refresh Token Rotation)
     await this.sessionRepository.revokeSession(session.id);
 
     this.logger.info('Refresh token rotated successfully', { userId: user.id });
 
-    // Tạo session mới và cấp cặp token mới
     return this.createSessionAndIssueTokens(
       user.id,
       user.email,
@@ -187,7 +182,7 @@ export class AuthService {
     const refreshTokenHash = await UserService.hashPassword(
       tokens.refreshToken,
     );
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 ngày
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
     await this.sessionRepository.create({
       id: sessionId,

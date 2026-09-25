@@ -6,8 +6,8 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
-import { IS_PUBLIC_KEY } from '@modules/auth/presentation/decorators/public.decorator';
-import { TokenPort } from '@modules/auth/domain/token.port';
+import { IS_PUBLIC_KEY } from '@modules/authentication/presentation/decorators/public.decorator';
+import { TokenPort } from '@modules/authentication/domain/token.port';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {

@@ -5,7 +5,7 @@ import { App } from 'supertest/types';
 import { AppModule } from '@/app.module';
 import { ApiErrorResponse } from '@common/filters/error-response.interface';
 import { UserResponseDto } from '@modules/user/presentation/dto/user.response';
-import { AuthResponseDto } from '@modules/auth/presentation/dto/auth.response';
+import { AuthResponseDto } from '@modules/authentication/presentation/dto/auth.response';
 import { UserRepositoryPort } from '@modules/user/domain/user.repository.port';
 import { UserService } from '@modules/user/application/user.service';
 import { Role } from '@modules/user/domain/user-role';

@@ -1,10 +1,10 @@
 export interface AuthConfig {
   jwtSecret: string;
-  jwtExpiresIn: string; // ví dụ: '15m'
-  jwtExpiresInSeconds: number; // ví dụ: 900
+  jwtExpiresIn: string;
+  jwtExpiresInSeconds: number;
   refreshSecret: string;
-  refreshExpiresIn: string; // ví dụ: '7d'
-  refreshExpiresInDays: number; // ví dụ: 7
+  refreshExpiresIn: string;
+  refreshExpiresInDays: number;
 }
 
 export function loadAuthConfig(): AuthConfig {

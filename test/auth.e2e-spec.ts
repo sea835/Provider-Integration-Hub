@@ -3,7 +3,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { AppModule } from '@/app.module';
-import { AuthResponseDto } from '@modules/auth/presentation/dto/auth.response';
+import { AuthResponseDto } from '@modules/authentication/presentation/dto/auth.response';
 import { ApiErrorResponse } from '@common/filters/error-response.interface';
 import { UserResponseDto } from '@modules/user/presentation/dto/user.response';
 

@@ -2,9 +2,9 @@ import { Injectable, Inject } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { eq, and, gt } from 'drizzle-orm';
 import { BaseRepository } from '@common/base/base.repository';
-import { SessionEntity } from '@modules/auth/domain/session.entity';
-import { SessionRepositoryPort } from '@modules/auth/domain/session.repository.port';
-import { sessions } from '@modules/auth/infrastructure/session.schema';
+import { SessionEntity } from '@modules/authentication/domain/session.entity';
+import { SessionRepositoryPort } from '@modules/authentication/domain/session.repository.port';
+import { sessions } from '@modules/authentication/infrastructure/session.schema';
 import { DRIZZLE } from '@infrastructure/database/drizzle.provider';
 
 @Injectable()

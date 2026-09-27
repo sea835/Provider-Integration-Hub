@@ -27,5 +27,6 @@
       "@modules/*": ["src/modules/*"],
       "@infrastructure/*": ["src/infrastructure/*"]
     }
-  }
+  },
+  "exclude": ["node_modules", "dist", "web"]
 }

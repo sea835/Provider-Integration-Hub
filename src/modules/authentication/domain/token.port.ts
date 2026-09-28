@@ -1,4 +1,7 @@
-import { TokenPayload, AuthTokens } from '@modules/authentication/domain/auth-token.vo';
+import {
+  TokenPayload,
+  AuthTokens,
+} from '@modules/authentication/domain/auth-token.vo';
 
 export abstract class TokenPort {
   abstract generateTokens(payload: TokenPayload): Promise<AuthTokens>;

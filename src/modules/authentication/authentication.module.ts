@@ -24,11 +24,6 @@ import { JwtAuthGuard } from '@modules/authentication/presentation/guards/jwt-au
     },
     JwtAuthGuard,
   ],
-  exports: [
-    AuthService,
-    TokenPort,
-    SessionRepositoryPort,
-    JwtAuthGuard,
-  ],
+  exports: [AuthService, TokenPort, SessionRepositoryPort, JwtAuthGuard],
 })
 export class AuthenticationModule {}

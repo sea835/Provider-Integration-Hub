@@ -7,6 +7,8 @@ import {
   PaginatedResult,
 } from '@common/base/pagination.dto';
 
+import { BaseRepositoryPort } from '@common/base/base.repository.port';
+
 export { PaginationQueryDto, PaginatedResult };
 export type { PaginationMeta };
 
@@ -14,7 +16,7 @@ export interface TableWithId extends PgTable {
   id: PgColumn<any>;
 }
 
-export abstract class BaseRepository<T> {
+export abstract class BaseRepository<T> implements BaseRepositoryPort<T> {
   constructor(
     protected readonly db: NodePgDatabase,
     protected readonly table: TableWithId,

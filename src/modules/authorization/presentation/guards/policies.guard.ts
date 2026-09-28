@@ -19,10 +19,10 @@ export class PoliciesGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const policyHandlers =
-      this.reflector.getAllAndOverride<PolicyHandler[]>(
-        CHECK_POLICIES_KEY,
-        [context.getHandler(), context.getClass()],
-      ) || [];
+      this.reflector.getAllAndOverride<PolicyHandler[]>(CHECK_POLICIES_KEY, [
+        context.getHandler(),
+        context.getClass(),
+      ]) || [];
 
     if (policyHandlers.length === 0) {
       return true;

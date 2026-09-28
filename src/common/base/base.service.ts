@@ -4,17 +4,13 @@ import {
   PaginatedResult,
 } from '@common/base/pagination.dto';
 
-export interface IBaseRepository<T> {
-  create(data: Partial<T>): Promise<T>;
-  findById(id: string): Promise<T | null>;
-  findAll(query?: PaginationQueryDto): Promise<T[]>;
-  findPaginated?(query?: PaginationQueryDto): Promise<PaginatedResult<T>>;
-  update(id: string, data: Partial<T>): Promise<T | null>;
-  delete(id: string): Promise<boolean>;
-}
+import { BaseRepositoryPort } from '@common/base/base.repository.port';
+
+export { BaseRepositoryPort };
+export type IBaseRepository<T> = BaseRepositoryPort<T>;
 
 export abstract class BaseService<T> {
-  constructor(protected readonly repository: IBaseRepository<T>) {}
+  constructor(protected readonly repository: BaseRepositoryPort<T>) {}
 
   async create(createDto: Partial<T>): Promise<T> {
     return this.repository.create(createDto);

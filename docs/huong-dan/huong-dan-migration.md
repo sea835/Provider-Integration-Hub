@@ -16,7 +16,7 @@ Thêm mới hoặc chỉnh sửa các file schema theo đúng cấu trúc của 
 Chạy lệnh `generate` để so sánh các file schema hiện tại với snapshot database và tạo ra file `.sql` mới lưu tại thư mục `./drizzle/migrations`:
 
 ```bash
-npm run db:generate
+npm run db:generate --name=ten_migration_moi
 ```
 
 *Sau khi chạy, kiểm tra lại nội dung file `.sql` vừa được sinh ra trong `./drizzle/migrations` để đảm bảo các câu lệnh DDL (CREATE, ALTER, DROP,...) đúng như mong đợi.*

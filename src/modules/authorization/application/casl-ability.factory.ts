@@ -19,7 +19,9 @@ export class CaslAbilityFactory {
   ) {}
 
   async createForUser(user?: TokenPayload): Promise<AppAbility> {
-    const { can, cannot, build } = new AbilityBuilder<AppAbility>(createMongoAbility);
+    const { can, cannot, build } = new AbilityBuilder<AppAbility>(
+      createMongoAbility,
+    );
 
     if (user?.role === Role.ADMIN) {
       can(Action.Manage, 'all');

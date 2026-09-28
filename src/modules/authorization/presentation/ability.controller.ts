@@ -13,7 +13,8 @@ export class AbilityController {
 
   @Get('me/abilities')
   @ApiOperation({
-    summary: 'Lấy danh sách rules phân quyền của người dùng hiện tại cho Frontend',
+    summary:
+      'Lấy danh sách rules phân quyền của người dùng hiện tại cho Frontend',
   })
   async getMyAbilities(@CurrentUser() user: TokenPayload) {
     const ability = await this.abilityFactory.createForUser(user);

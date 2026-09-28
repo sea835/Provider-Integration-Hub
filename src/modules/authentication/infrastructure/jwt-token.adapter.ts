@@ -1,7 +1,10 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { TokenPort } from '@modules/authentication/domain/token.port';
-import { TokenPayload, AuthTokens } from '@modules/authentication/domain/auth-token.vo';
+import {
+  TokenPayload,
+  AuthTokens,
+} from '@modules/authentication/domain/auth-token.vo';
 import {
   AuthConfig,
   loadAuthConfig,

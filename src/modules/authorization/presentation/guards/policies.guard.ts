@@ -28,8 +28,10 @@ export class PoliciesGuard implements CanActivate {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest();
-    const user = (request as unknown as { user?: TokenPayload }).user;
+    const request = context
+      .switchToHttp()
+      .getRequest<{ user?: TokenPayload }>();
+    const user = request?.user;
 
     if (!user || !user.role) {
       throw new ForbiddenException(

@@ -7,6 +7,10 @@ import { UserModule } from '@modules/user/user.module';
 import { AuthenticationModule } from '@modules/authentication/authentication.module';
 import { AuthorizationModule } from '@modules/authorization/authorization.module';
 import { HealthModule } from '@modules/health/health.module';
+import { CatalogModule } from '@modules/catalog/catalog.module';
+import { TransactionModule } from '@modules/transaction/transaction.module';
+import { ProviderAdapterModule } from '@modules/provider-adapter/provider-adapter.module';
+import { SupplierModule } from '@modules/supplier/supplier.module';
 import { JwtAuthGuard } from '@modules/authentication/presentation/guards/jwt-auth.guard';
 import { PoliciesGuard } from '@modules/authorization/presentation/guards/policies.guard';
 import { GlobalExceptionFilter } from '@common/filters/global-exception.filter';
@@ -25,6 +29,10 @@ import { GlobalExceptionFilter } from '@common/filters/global-exception.filter';
     AuthenticationModule,
     AuthorizationModule,
     HealthModule,
+    CatalogModule,
+    TransactionModule,
+    ProviderAdapterModule,
+    SupplierModule,
   ],
   controllers: [],
   providers: [

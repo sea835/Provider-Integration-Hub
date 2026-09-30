@@ -5,6 +5,7 @@ import { CaslAbilityFactory } from '../../application/casl-ability.factory';
 import { TokenPayload } from '@modules/authentication/domain/auth-token.vo';
 import { Action } from '../../domain/action.enum';
 import { UserEntity } from '@modules/user/domain/user.entity';
+import { AppAbility } from '../../domain/policy.types';
 
 describe('PoliciesGuard', () => {
   let reflector: Record<string, jest.Mock>;
@@ -35,7 +36,7 @@ describe('PoliciesGuard', () => {
 
   it('nên cho qua khi user thỏa mãn policy', async () => {
     reflector.getAllAndOverride.mockReturnValue([
-      (ability: any) => ability.can(Action.Manage, 'all'),
+      (ability: AppAbility) => ability.can(Action.Manage, 'all'),
     ]);
 
     expect(
@@ -51,7 +52,7 @@ describe('PoliciesGuard', () => {
 
   it('nên ném ForbiddenException khi user không thỏa mãn policy', async () => {
     reflector.getAllAndOverride.mockReturnValue([
-      (ability: any) => ability.can(Action.Delete, UserEntity),
+      (ability: AppAbility) => ability.can(Action.Delete, UserEntity),
     ]);
 
     await expect(
@@ -67,7 +68,7 @@ describe('PoliciesGuard', () => {
 
   it('nên ném ForbiddenException khi request không có user', async () => {
     reflector.getAllAndOverride.mockReturnValue([
-      (ability: any) => ability.can(Action.Read, UserEntity),
+      (ability: AppAbility) => ability.can(Action.Read, UserEntity),
     ]);
 
     await expect(guard.canActivate(createContext())).rejects.toThrow(

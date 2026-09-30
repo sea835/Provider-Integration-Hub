@@ -1129,6 +1129,498 @@
 				"description": "Thu hồi phiên hiện tại. Đặt cuối collection để các request phía trên vẫn dùng được token."
 			},
 			"response": []
+		},
+		{
+			"name": "Store API (ANI SIM)",
+			"description": "Tập hợp các API chuẩn 4 Bước cho Store và Tích hợp ANI SIM",
+			"item": [
+				{
+					"name": "Bước 1: Danh Mục Gói Cước (Catalog)",
+					"description": "Mode 1 (Sync < 5ms): Lấy danh mục sản phẩm và gói cước khả dụng cho Store / SMM.",
+					"item": [
+						{
+							"name": "1. Lấy danh sách gói cước (GET /engine/v1/packages)",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 200\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"pm.test(\"Response format is valid\", function () {",
+											"    const json = pm.response.json();",
+											"    pm.expect(json.code).to.eql(0);",
+											"    pm.expect(json.data).to.be.an(\"array\");",
+											"    const sm110 = json.data.find(p => p.sku === \"SM110\");",
+											"    pm.expect(sm110).to.not.be.undefined;",
+											"    pm.expect(sm110.providerCode).to.eql(\"ANISIM\");",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/engine/v1/packages",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"engine",
+										"v1",
+										"packages"
+									]
+								},
+								"description": "Lấy danh mục sản phẩm / gói cước khả dụng cho Store API."
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Bước 2: Kiểm Tra Điều Kiện Thuê Bao (Eligibility Check)",
+					"description": "Mode 1 (Sync < 1s): Kiểm tra gói cước có phù hợp với thuê bao hay không.",
+					"item": [
+						{
+							"name": "2.1. Kiểm tra gói hợp lệ (POST /engine/v1/check)",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 200\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"pm.test(\"Eligible is true\", function () {",
+											"    const json = pm.response.json();",
+											"    pm.expect(json.code).to.eql(0);",
+											"    pm.expect(json.data.eligible).to.be.true;",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"phone\": \"{{targetPhone}}\",\n  \"packageCode\": \"{{packageCode}}\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/engine/v1/check",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"engine",
+										"v1",
+										"check"
+									]
+								},
+								"description": "Kiểm tra gói cước SM110 của ANI SIM cho thuê bao."
+							},
+							"response": []
+						},
+						{
+							"name": "2.2. Kiểm tra gói không tồn tại (POST /engine/v1/check)",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 200\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"pm.test(\"Eligible is false for unknown package\", function () {",
+											"    const json = pm.response.json();",
+											"    pm.expect(json.code).to.eql(0);",
+											"    pm.expect(json.data.eligible).to.be.false;",
+											"    pm.expect(json.data.reason).to.contain(\"not found\");",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"phone\": \"{{targetPhone}}\",\n  \"packageCode\": \"UNKNOWN_PACKAGE_XYZ\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/engine/v1/check",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"engine",
+										"v1",
+										"check"
+									]
+								},
+								"description": "Kiểm tra xử lý lỗi khi gói cước không tồn tại trong Catalog."
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Bước 3: Đăng Ký Gói & Tạo Đơn (Order Creation - Async Mode 2)",
+					"description": "Mode 2: Tiếp nhận đơn hàng < 15ms, sinh mã transCode, chống nạp đúp và ủy quyền cho AnisimAdapter.",
+					"item": [
+						{
+							"name": "3.1. Tạo đơn hàng mới (POST /engine/v1/orders)",
+							"event": [
+								{
+									"listen": "prerequest",
+									"script": {
+										"exec": [
+											"// Tự động sinh requestId duy nhất chống trùng lặp",
+											"const now = new Date();",
+											"const timeStr = now.toISOString().replace(/[-:T.Z]/g, '').slice(0, 14);",
+											"const rand = Math.floor(Math.random() * 1000).toString().padStart(3, '0');",
+											"const newRequestId = 'TX_' + timeStr + '_' + rand;",
+											"pm.environment.set('requestId', newRequestId);",
+											"console.log('Generated new requestId: ' + newRequestId);"
+										],
+										"type": "text/javascript"
+									}
+								},
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 201 Created\", function () {",
+											"    pm.response.to.have.status(201);",
+											"});",
+											"",
+											"pm.test(\"Order accepted & PROCESSING\", function () {",
+											"    const json = pm.response.json();",
+											"    pm.expect(json.code).to.eql(0);",
+											"    pm.expect(json.data.transCode).to.be.a('string');",
+											"    pm.expect(json.data.status).to.eql('PROCESSING');",
+											"    pm.expect(json.data.requestId).to.eql(pm.environment.get('requestId'));",
+											"    ",
+											"    // Lưu transCode vào environment để phục vụ các bước test tiếp theo",
+											"    pm.environment.set('transCode', json.data.transCode);",
+											"    if (json.data.supplierTransId) {",
+											"        pm.environment.set('supplierTransId', json.data.supplierTransId);",
+											"    }",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"requestId\": \"{{requestId}}\",\n  \"action\": \"ACTIVATE_SIM\",\n  \"phone\": \"{{targetPhone}}\",\n  \"packageCode\": \"{{packageCode}}\",\n  \"serial\": \"{{simSerial}}\",\n  \"metadata\": {\n    \"provider\": \"ANISIM\",\n    \"note\": \"Test Order from Postman\"\n  }\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/engine/v1/orders",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"engine",
+										"v1",
+										"orders"
+									]
+								},
+								"description": "Tạo đơn hàng kích hoạt SIM/eSIM. Tự động sinh `requestId` và lưu lại `transCode`."
+							},
+							"response": []
+						},
+						{
+							"name": "3.2. Chống nạp đúp - Gửi lại cùng requestId (POST /engine/v1/orders)",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 201\", function () {",
+											"    pm.response.to.have.status(201);",
+											"});",
+											"",
+											"pm.test(\"Idempotency verified: Returns same transCode\", function () {",
+											"    const json = pm.response.json();",
+											"    pm.expect(json.code).to.eql(0);",
+											"    pm.expect(json.data.transCode).to.eql(pm.environment.get('transCode'));",
+											"    pm.expect(json.data.requestId).to.eql(pm.environment.get('requestId'));",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"requestId\": \"{{requestId}}\",\n  \"action\": \"ACTIVATE_SIM\",\n  \"phone\": \"{{targetPhone}}\",\n  \"packageCode\": \"{{packageCode}}\",\n  \"serial\": \"{{simSerial}}\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/engine/v1/orders",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"engine",
+										"v1",
+										"orders"
+									]
+								},
+								"description": "Gửi lại cùng `requestId` đã tạo ở bước 3.1. Hệ thống phải trả lại đơn hàng cũ ngay mà không gọi NCC lần 2."
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Bước 4: Tra Cứu & Cập Nhật Trạng Thái (Status & Callback)",
+					"description": "Kiểm tra trạng thái đơn qua Tra cứu tức thời, Webhook Callback thời gian thực, và Polling dự phòng.",
+					"item": [
+						{
+							"name": "4.1. Tra cứu đơn hàng theo transCode (GET /engine/v1/orders/:transCode)",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 200\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"pm.test(\"Order retrieved successfully\", function () {",
+											"    const json = pm.response.json();",
+											"    pm.expect(json.code).to.eql(0);",
+											"    pm.expect(json.data.transCode).to.eql(pm.environment.get('transCode'));",
+											"    pm.expect(json.data.packageCode).to.eql(\"SM110\");",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/engine/v1/orders/{{transCode}}",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"engine",
+										"v1",
+										"orders",
+										"{{transCode}}"
+									]
+								},
+								"description": "Tra cứu trạng thái đơn hàng tức thời (< 5ms) từ PostgreSQL."
+							},
+							"response": []
+						},
+						{
+							"name": "4.2. Giả lập ANI SIM gửi Webhook Callback (POST /api/v1/callback/orders)",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 200\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"pm.test(\"Callback acknowledged\", function () {",
+											"    const json = pm.response.json();",
+											"    pm.expect(json.code).to.eql(0);",
+											"    pm.expect(json.message).to.eql(\"Received\");",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									},
+									{
+										"key": "X-MK-Callback-Event",
+										"value": "ORDER_RESULT"
+									},
+									{
+										"key": "X-MK-Callback-Id",
+										"value": "EVT_77889900"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"code\": 0,\n  \"data\": {\n    \"id\": \"{{supplierTransId}}\",\n    \"requestId\": \"{{requestId}}\",\n    \"status\": 4,\n    \"msisdn\": \"{{targetPhone}}\",\n    \"serial\": \"{{simSerial}}\",\n    \"lpa\": \"LPA:1$smdp.anipay.vn$MATCHING_ID_009988\",\n    \"urlLpa\": \"https://ap1.anipay.vn/qr/esim_009988.png\",\n    \"costPrice\": 95000\n  }\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/callback/orders",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"callback",
+										"orders"
+									]
+								},
+								"description": "Giả lập Webhook NCC đẩy kết quả kích hoạt eSIM hoàn tất (status 4 = COMPLETED), sinh mã QR và LPA string."
+							},
+							"response": []
+						},
+						{
+							"name": "4.3. Xác nhận đơn sau Webhook: COMPLETED + QR/LPA (GET /engine/v1/orders/:transCode)",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 200\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"pm.test(\"Order marked COMPLETED with eSIM LPA & QR URL\", function () {",
+											"    const json = pm.response.json();",
+											"    pm.expect(json.code).to.eql(0);",
+											"    pm.expect(json.data.status).to.eql(\"COMPLETED\");",
+											"    pm.expect(json.data.lpaString).to.contain(\"LPA:1$\");",
+											"    pm.expect(json.data.qrUrl).to.contain(\"https://\");",
+											"    pm.expect(json.data.costAmount).to.eql(95000);",
+											"    pm.expect(json.data.completedAt).to.not.be.null;",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Accept",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/engine/v1/orders/{{transCode}}",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"engine",
+										"v1",
+										"orders",
+										"{{transCode}}"
+									]
+								},
+								"description": "Kiểm tra đơn hàng đã được cập nhật thành công sau khi xử lý Webhook Callback."
+							},
+							"response": []
+						},
+						{
+							"name": "4.4. Kích hoạt Polling thủ công (POST /engine/v1/orders/:transCode/poll)",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test(\"Status code is 200\", function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"",
+											"pm.test(\"Poll executed successfully\", function () {",
+											"    const json = pm.response.json();",
+											"    pm.expect(json.code).to.eql(0);",
+											"    pm.expect(json.data.transCode).to.eql(pm.environment.get('transCode'));",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/engine/v1/orders/{{transCode}}/poll",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"engine",
+										"v1",
+										"orders",
+										"{{transCode}}",
+										"poll"
+									]
+								},
+								"description": "Chủ động thăm dò trạng thái với NCC ANI SIM qua API Inquiry / Polling khi chưa nhận được Webhook."
+							},
+							"response": []
+						}
+					]
+				}
+			]
 		}
 	],
 	"variable": [

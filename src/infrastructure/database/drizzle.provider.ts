@@ -3,7 +3,7 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import * as dotenv from 'dotenv';
 
-dotenv.config();
+dotenv.config({ override: true });
 
 export const DRIZZLE = 'Drizzle';
 export const DRIZZLE_POOL = 'DrizzlePool';

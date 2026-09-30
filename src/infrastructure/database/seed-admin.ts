@@ -43,14 +43,18 @@ async function main() {
         status: 'ACTIVE',
       });
       console.log(`Đã tạo tài khoản ADMIN: ${email}`);
-    } else if (existing.role !== Role.ADMIN) {
+    } else {
       await db
         .update(users)
-        .set({ role: Role.ADMIN })
+        .set({
+          role: Role.ADMIN,
+          password: await UserService.hashPassword(password),
+          status: 'ACTIVE',
+        })
         .where(eq(users.id, existing.id));
-      console.log(`Đã nâng quyền ADMIN cho tài khoản có sẵn: ${email}`);
-    } else {
-      console.log(`Tài khoản ${email} đã là ADMIN, không thay đổi`);
+      console.log(
+        `Đã cập nhật mật khẩu và quyền ADMIN cho tài khoản: ${email}`,
+      );
     }
   } finally {
     await pool.end();

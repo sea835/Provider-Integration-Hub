@@ -8,6 +8,7 @@ import {
 } from '@common/base/pagination.dto';
 
 import { BaseRepositoryPort } from '@common/base/base.repository.port';
+import { DbContext } from '@infrastructure/database/db-context';
 
 export { PaginationQueryDto, PaginatedResult };
 export type { PaginationMeta };
@@ -22,6 +23,11 @@ export abstract class BaseRepository<T> implements BaseRepositoryPort<T> {
     protected readonly table: TableWithId,
   ) {}
 
+  /** Transaction hiện tại (nếu đang trong TransactionRunnerPort.run), nếu không thì kết nối mặc định. */
+  protected get conn(): NodePgDatabase {
+    return DbContext.current() ?? this.db;
+  }
+
   protected getOrderColumn(): PgColumn {
     const tableAny = this.table as unknown as Record<string, unknown>;
     if (tableAny.createdAt && typeof tableAny.createdAt === 'object') {
@@ -31,7 +37,7 @@ export abstract class BaseRepository<T> implements BaseRepositoryPort<T> {
   }
 
   async create(data: Partial<T>): Promise<T> {
-    const result = (await this.db
+    const result = (await this.conn
       .insert(this.table)
       .values(data as Record<string, unknown>)
       .returning()) as T[];
@@ -39,7 +45,7 @@ export abstract class BaseRepository<T> implements BaseRepositoryPort<T> {
   }
 
   async findById(id: string): Promise<T | null> {
-    const result = (await this.db
+    const result = (await this.conn
       .select()
       .from(this.table)
       .where(eq(this.table.id, id))) as T[];
@@ -52,7 +58,7 @@ export abstract class BaseRepository<T> implements BaseRepositoryPort<T> {
     const offset = (page - 1) * limit;
     const orderCol = this.getOrderColumn();
 
-    const result = (await this.db
+    const result = (await this.conn
       .select()
       .from(this.table)
       .orderBy(desc(orderCol))
@@ -70,13 +76,13 @@ export abstract class BaseRepository<T> implements BaseRepositoryPort<T> {
     const orderCol = this.getOrderColumn();
 
     const [data, totalCountResult] = await Promise.all([
-      this.db
+      this.conn
         .select()
         .from(this.table)
         .orderBy(desc(orderCol))
         .limit(limit)
         .offset(offset) as Promise<T[]>,
-      this.db.select({ value: count() }).from(this.table),
+      this.conn.select({ value: count() }).from(this.table),
     ]);
 
     const total = Number(totalCountResult[0]?.value || 0);
@@ -96,7 +102,7 @@ export abstract class BaseRepository<T> implements BaseRepositoryPort<T> {
   }
 
   async update(id: string, data: Partial<T>): Promise<T | null> {
-    const result = (await this.db
+    const result = (await this.conn
       .update(this.table)
       .set(data as Record<string, unknown>)
       .where(eq(this.table.id, id))
@@ -105,7 +111,7 @@ export abstract class BaseRepository<T> implements BaseRepositoryPort<T> {
   }
 
   async delete(id: string): Promise<boolean> {
-    const result = (await this.db
+    const result = (await this.conn
       .delete(this.table)
       .where(eq(this.table.id, id))
       .returning()) as unknown[];

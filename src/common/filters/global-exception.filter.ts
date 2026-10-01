@@ -11,6 +11,9 @@ import { Request, Response } from 'express';
 import { LoggerPort, LogLayer } from '@common/logger';
 import { RequestContext } from '@infrastructure/logger/request-context';
 import { ApiErrorResponse } from '@common/filters/error-response.interface';
+import { DomainError } from '@common/errors/domain-error';
+import { DOMAIN_ERROR_STATUS } from '@common/errors/domain-error-status';
+import { maskSensitive } from '@common/libs/mask-sensitive';
 
 interface DatabaseError extends Error {
   code?: string;
@@ -63,7 +66,13 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         }
       }
     }
-    // 2. PostgreSQL / Drizzle Database Errors (hỗ trợ cả pg driver và DrizzleQueryError wrap trong cause)
+    // 2. Lỗi nghiệp vụ (DomainError): `error` là mã máy đọc (ERR_*), status theo `kind`
+    else if (exception instanceof DomainError) {
+      status = DOMAIN_ERROR_STATUS[exception.kind];
+      errorName = exception.code;
+      message = exception.message;
+    }
+    // 3. PostgreSQL / Drizzle Database Errors (hỗ trợ cả pg driver và DrizzleQueryError wrap trong cause)
     else if (this.extractDatabaseError(exception)) {
       const dbErr = this.extractDatabaseError(exception)!;
       switch (dbErr.code) {
@@ -89,7 +98,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
           break;
       }
     }
-    // 3. Unhandled Standard Errors
+    // 4. Unhandled Standard Errors
     else if (exception instanceof Error) {
       status = HttpStatus.INTERNAL_SERVER_ERROR;
       errorName = exception.name || 'Internal Server Error';
@@ -108,7 +117,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
           requestId,
           path: request.url,
           method: request.method,
-          body: request.body,
+          body: maskSensitive(request.body as unknown),
         });
       } else if (statusCode >= 400) {
         this.logger.warn(logMessage, {

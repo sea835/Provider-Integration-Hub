@@ -10,7 +10,6 @@ export const suppliers = pgTable('suppliers', {
   version: integer('version').notNull().default(1),
   baseUrl: varchar('base_url', { length: 500 }).notNull(),
   submitTimeoutMs: integer('submit_timeout_ms').notNull().default(30000),
-  checkTimeoutMs: integer('check_timeout_ms').notNull().default(3000),
   queryTimeoutMs: integer('query_timeout_ms').notNull().default(10000),
   concurrency: integer('concurrency').notNull().default(5),
   rateLimitPerMin: integer('rate_limit_per_min').notNull().default(60),

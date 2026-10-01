@@ -10,6 +10,12 @@ import { HealthModule } from '@modules/health/health.module';
 import { JwtAuthGuard } from '@modules/authentication/presentation/guards/jwt-auth.guard';
 import { PoliciesGuard } from '@modules/authorization/presentation/guards/policies.guard';
 import { GlobalExceptionFilter } from '@common/filters/global-exception.filter';
+import { CryptoModule } from '@infrastructure/crypto/crypto.module';
+import { QueueModule } from '@infrastructure/queue/queue.module';
+import { ProviderAdapterModule } from '@modules/provider-adapter/provider-adapter.module';
+import { SupplierModule } from '@modules/supplier/supplier.module';
+import { MerchantModule } from '@modules/merchant/merchant.module';
+import { TransactionModule } from '@modules/transaction/transaction.module';
 
 @Module({
   imports: [
@@ -21,10 +27,16 @@ import { GlobalExceptionFilter } from '@common/filters/global-exception.filter';
     ]),
     LoggerModule,
     DrizzleModule,
+    CryptoModule,
+    QueueModule,
     UserModule,
     AuthenticationModule,
     AuthorizationModule,
     HealthModule,
+    ProviderAdapterModule,
+    SupplierModule,
+    MerchantModule,
+    TransactionModule,
   ],
   controllers: [],
   providers: [

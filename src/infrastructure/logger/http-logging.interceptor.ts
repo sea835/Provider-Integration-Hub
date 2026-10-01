@@ -8,6 +8,8 @@ import {
 import { Request, Response } from 'express';
 import { Observable, tap } from 'rxjs';
 import { LoggerPort, LogLayer } from '@common/logger';
+import { DomainError } from '@common/errors/domain-error';
+import { DOMAIN_ERROR_STATUS } from '@common/errors/domain-error-status';
 
 /** Log mỗi HTTP request: [HTTP][UserController] GET /users 200 12ms */
 @Injectable()
@@ -41,6 +43,9 @@ export class HttpLoggingInterceptor implements NestInterceptor {
           if (err instanceof HttpException) {
             status = err.getStatus();
             reason = err.message;
+          } else if (err instanceof DomainError) {
+            status = DOMAIN_ERROR_STATUS[err.kind];
+            reason = `${err.code}: ${err.message}`;
           } else if (err instanceof Error) {
             reason = err.message;
           }

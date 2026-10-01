@@ -6,6 +6,7 @@ import {
 import { ArgumentsHost } from '@nestjs/common';
 import { GlobalExceptionFilter } from '@common/filters/global-exception.filter';
 import { LoggerPort } from '@common/logger';
+import { DomainError, DomainErrorKind } from '@common/errors/domain-error';
 
 describe('GlobalExceptionFilter', () => {
   let filter: GlobalExceptionFilter;
@@ -54,6 +55,41 @@ describe('GlobalExceptionFilter', () => {
     } as unknown as ArgumentsHost;
 
     filter = new GlobalExceptionFilter(mockLogger as unknown as LoggerPort);
+  });
+
+  it.each([
+    [DomainErrorKind.VALIDATION, HttpStatus.BAD_REQUEST],
+    [DomainErrorKind.UNAUTHORIZED, HttpStatus.UNAUTHORIZED],
+    [DomainErrorKind.FORBIDDEN, HttpStatus.FORBIDDEN],
+    [DomainErrorKind.NOT_FOUND, HttpStatus.NOT_FOUND],
+    [DomainErrorKind.CONFLICT, HttpStatus.CONFLICT],
+    [DomainErrorKind.UNPROCESSABLE, HttpStatus.UNPROCESSABLE_ENTITY],
+  ])('DomainError kind %s → HTTP %s, error = mã nghiệp vụ', (kind, status) => {
+    class SampleError extends DomainError {
+      readonly code = 'ERR_SAMPLE';
+      readonly kind = kind;
+    }
+
+    filter.catch(new SampleError('Thông điệp nghiệp vụ'), mockHost);
+
+    expect(mockResponse.status).toHaveBeenCalledWith(status);
+    expect(mockResponse.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: status,
+        error: 'ERR_SAMPLE',
+        message: 'Thông điệp nghiệp vụ',
+      }),
+    );
+  });
+
+  it('không log secret trong body khi lỗi 5xx', () => {
+    mockRequest.body = { name: 'x', secrets: { apiKey: 'top-secret' } };
+
+    filter.catch(new Error('boom'), mockHost);
+
+    const call = mockLogger.error.mock.calls[0] as unknown[];
+    const meta = call[2] as { body: unknown };
+    expect(JSON.stringify(meta.body)).not.toContain('top-secret');
   });
 
   it('nên xử lý NotFoundException chuẩn xác', () => {

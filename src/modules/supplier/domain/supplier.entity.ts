@@ -9,7 +9,6 @@ export class SupplierEntity extends BaseEntity {
   version: number;
   baseUrl: string;
   submitTimeoutMs: number;
-  checkTimeoutMs: number;
   queryTimeoutMs: number;
   concurrency: number;
   rateLimitPerMin: number;

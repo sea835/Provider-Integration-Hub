@@ -9,7 +9,7 @@ import { AppModule } from '@/app.module';
 import { ExecutionModule } from '@modules/execution/execution.module';
 import { SweeperService } from '@modules/execution/application/sweeper.service';
 import { PROVIDER_ADAPTERS } from '@modules/provider-adapter/domain/provider-adapter.port';
-import { AnisimAdapter } from '@modules/provider-adapter/infrastructure/adapters/anisim/anisim.adapter';
+import { HubStandardAdapter } from '@modules/provider-adapter/infrastructure/adapters/hub-standard/hub-standard.adapter';
 import { UserService } from '@modules/user/application/user.service';
 import { DRIZZLE_POOL } from '@infrastructure/database/drizzle.provider';
 import { REDIS_CONNECTION } from '@infrastructure/queue/redis.provider';
@@ -100,8 +100,8 @@ describe('Core P1 (e2e)', () => {
     })
       .overrideProvider(PROVIDER_ADAPTERS)
       .useFactory({
-        factory: (anisim: AnisimAdapter) => [anisim, fake],
-        inject: [AnisimAdapter],
+        factory: (standard: HubStandardAdapter) => [standard, fake],
+        inject: [HubStandardAdapter],
       })
       .compile();
 
@@ -457,6 +457,108 @@ describe('Core P1 (e2e)', () => {
         .send({ outcome: 'FAILED', reason: 'Đối soát: NCC không nhận đơn' })
         .expect(200);
       await waitStatus(order.transCode, 'FAILED');
+    });
+
+    it('đối soát thủ công: hỏi NCC (không đổi trạng thái) rồi chốt thành công kèm thông tin giao khách', async () => {
+      const phone = nextPhone();
+      fake.plan(phone, ['UNKNOWN', 'NOT_FOUND', 'SUCCESS']);
+      const order = (await createOrder(phone)).body as OrderBody;
+      await waitStatus(order.transCode, 'MANUAL_REVIEW', true);
+
+      const lookup = await http
+        .post(`/admin/orders/${order.transCode}/lookup`)
+        .set(admin())
+        .expect(200);
+      expect(lookup.body).toMatchObject({
+        transCode: order.transCode,
+        outcome: 'SUCCESS',
+      });
+      await waitStatus(order.transCode, 'MANUAL_REVIEW', true);
+
+      await http
+        .post(`/admin/orders/${order.transCode}/resolve`)
+        .set(admin())
+        .send({
+          outcome: 'SUCCESS',
+          reason: 'Đối soát: NCC báo thành công',
+          supplierTransId: 'NCC-MANUAL-1',
+          delivery: { msisdn: '0912000111', lpa: 'LPA:1$x', serial: '' },
+        })
+        .expect(200);
+      await waitStatus(order.transCode, 'COMPLETED');
+      const done = (
+        await http.get(`/v1/orders/${order.transCode}`).set(merchant())
+      ).body as OrderBody & { delivery: Record<string, string> };
+      expect(done.delivery).toEqual({ msisdn: '0912000111', lpa: 'LPA:1$x' });
+
+      await http
+        .post(`/admin/orders/${order.transCode}/resolve`)
+        .set(admin())
+        .send({ outcome: 'FAILED', reason: 'thử chốt lại' })
+        .expect(409);
+    });
+
+    it('chốt thất bại với mã lỗi riêng; mã lỗi có khoảng trắng bị từ chối', async () => {
+      const phone = nextPhone();
+      fake.plan(phone, ['UNKNOWN', 'NOT_FOUND']);
+      const order = (await createOrder(phone)).body as OrderBody;
+      await waitStatus(order.transCode, 'MANUAL_REVIEW', true);
+      await http
+        .post(`/admin/orders/${order.transCode}/resolve`)
+        .set(admin())
+        .send({ outcome: 'FAILED', reason: 'x', errorCode: 'có khoảng trắng' })
+        .expect(400);
+      await http
+        .post(`/admin/orders/${order.transCode}/resolve`)
+        .set(admin())
+        .send({
+          outcome: 'FAILED',
+          reason: 'NCC xác nhận không nhận đơn',
+          errorCode: 'NCC_NOT_RECEIVED',
+        })
+        .expect(200);
+      await waitStatus(order.transCode, 'FAILED');
+      const done = (
+        await http.get(`/v1/orders/${order.transCode}`).set(merchant())
+      ).body as OrderBody;
+      expect(done.error).toMatchObject({ code: 'NCC_NOT_RECEIVED' });
+    });
+
+    it('đơn cần đối soát cho tra cứu lại tự động → về PROCESSING, check lại và chốt theo NCC', async () => {
+      const phone = nextPhone();
+      fake.plan(phone, ['UNKNOWN', 'NOT_FOUND', 'SUCCESS']);
+      const order = (await createOrder(phone)).body as OrderBody;
+      await waitStatus(order.transCode, 'MANUAL_REVIEW', true);
+
+      const reopened = await http
+        .post(`/admin/orders/${order.transCode}/recheck`)
+        .set(admin())
+        .send({ reason: 'NCC báo đã xử lý xong' })
+        .expect(200);
+      expect(reopened.body).toMatchObject({
+        status: 'PROCESSING',
+        errorCode: null,
+      });
+      await waitStatus(order.transCode, 'COMPLETED', false, 5_000);
+
+      const events = (
+        await http.get(`/admin/orders/${order.transCode}/events`).set(admin())
+      ).body as Array<{ type: string; source: string; message: string }>;
+      expect(events).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: 'RECHECK_REQUESTED',
+            source: 'OPERATOR',
+            message: 'NCC báo đã xử lý xong',
+          }),
+        ]),
+      );
+
+      await http
+        .post(`/admin/orders/${order.transCode}/recheck`)
+        .set(admin())
+        .send({})
+        .expect(409);
     });
 
     it('Redis mất job CHECK khi đơn đang chờ poll → Sweeper vớt lại và chạy tiếp', async () => {

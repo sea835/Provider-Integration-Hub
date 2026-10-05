@@ -18,8 +18,11 @@ import { InvalidStateTransitionError } from '@modules/transaction/domain/transac
 import { OrderQueuePort } from '@modules/transaction/domain/order-queue.port';
 import { OrderQueryService } from '@modules/transaction/application/order-query.service';
 import { OrderStateService } from '@modules/transaction/application/order-state.service';
+import { OrderReconcileService } from '@modules/transaction/application/order-reconcile.service';
+import type { OrderLookupOutput } from '@modules/transaction/application/order-reconcile.service';
 import {
   AdminOrderQuery,
+  RecheckOrderRequest,
   ResolveOrderRequest,
 } from '@modules/transaction/presentation/dto/order.request';
 import {
@@ -36,6 +39,7 @@ export class AdminOrderController {
     private readonly orderQuery: OrderQueryService,
     private readonly orderState: OrderStateService,
     private readonly queue: OrderQueuePort,
+    private readonly reconcile: OrderReconcileService,
   ) {}
 
   @Get()
@@ -89,8 +93,48 @@ export class AdminOrderController {
         dto.outcome,
         dto.reason,
         actorId,
+        {
+          errorCode: dto.errorCode,
+          supplierTransId: dto.supplierTransId,
+          delivery: dto.delivery,
+        },
       ),
     );
+  }
+
+  @Post(':transCode/lookup')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Đối soát: hỏi NCC ngay xem đơn đang thế nào. Không đổi trạng thái đơn; vận hành tự chốt sau',
+  })
+  lookup(@Param('transCode') transCode: string): Promise<OrderLookupOutput> {
+    return this.reconcile.lookup(transCode);
+  }
+
+  @Post(':transCode/recheck')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Cho đơn MANUAL_REVIEW tra cứu lại tự động: về PROCESSING, tra cứu ngay rồi poll theo lịch, thời gian chờ tính lại từ đầu. Không gửi lại đơn',
+  })
+  async recheck(
+    @Param('transCode') transCode: string,
+    @Body() dto: RecheckOrderRequest,
+    @CurrentUser('sub') actorId: string,
+  ): Promise<AdminOrderResponse> {
+    const order = await this.orderState.reopenForCheck(
+      transCode,
+      dto.reason?.trim() || 'Vận hành cho tra cứu lại',
+      actorId,
+    );
+    await this.queue.enqueueCheck(
+      order.supplierCode,
+      order.transCode,
+      order.checkCount + 1,
+      0,
+    );
+    return AdminOrderResponse.fromEntity(order);
   }
 
   @Post(':transCode/check')

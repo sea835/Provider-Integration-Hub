@@ -19,6 +19,7 @@ import {
   TransactionRepositoryPort,
 } from '@modules/transaction/domain/transaction.repository.port';
 import { TransactionRunnerPort } from '@common/database/transaction-runner.port';
+import { StoreCallbackRepositoryPort } from '@modules/transaction/domain/store-callback';
 
 function makeOrder(
   overrides: Partial<TransactionEntity> = {},
@@ -42,6 +43,8 @@ function makeOrder(
     checkCount: 0,
     resubmitRequested: false,
     nextCheckAt: new Date(),
+    checkWindowStartedAt: null,
+    checkWindowBase: 0,
     delivery: {},
     errorCode: null,
     errorMessage: null,
@@ -67,6 +70,7 @@ describe('OrderStateService', () => {
     update: jest.Mock;
   };
   let events: { record: jest.Mock };
+  let callbacks: { enqueue: jest.Mock };
   let service: OrderStateService;
 
   const setOrder = (order: TransactionEntity | null) => {
@@ -84,6 +88,7 @@ describe('OrderStateService', () => {
       }),
     };
     events = { record: jest.fn().mockResolvedValue(undefined) };
+    callbacks = { enqueue: jest.fn().mockResolvedValue(undefined) };
     const runner = { run: (fn: () => Promise<unknown>) => fn() };
     const logger = {
       child: jest.fn().mockReturnThis(),
@@ -98,6 +103,7 @@ describe('OrderStateService', () => {
       orders as unknown as TransactionRepositoryPort,
       events as unknown as TransactionEventRepositoryPort,
       runner as unknown as TransactionRunnerPort,
+      callbacks as unknown as StoreCallbackRepositoryPort,
       logger,
     );
   });
@@ -301,6 +307,44 @@ describe('OrderStateService', () => {
     });
   });
 
+  describe('callback về Store (outbox)', () => {
+    it.each([
+      [Outcome.SUCCESS, 'order.completed'],
+      [Outcome.FAILED, 'order.failed'],
+    ] as const)('đơn chốt %s → ghi outbox %s', async (outcome, event) => {
+      await service.applyResult('TX1', result(outcome), EventSource.CHECK);
+      expect(callbacks.enqueue).toHaveBeenCalledTimes(1);
+      expect(callbacks.enqueue).toHaveBeenCalledWith(
+        expect.objectContaining({ transCode: 'TX1' }),
+        event,
+      );
+    });
+
+    it('chưa chốt (PENDING) hoặc kết quả đến sau khi đã chốt → không ghi', async () => {
+      await service.applyResult(
+        'TX1',
+        result(Outcome.PENDING),
+        EventSource.CHECK,
+      );
+      setOrder(makeOrder({ status: TransactionStatus.COMPLETED }));
+      await service.applyResult(
+        'TX1',
+        result(Outcome.SUCCESS),
+        EventSource.CALLBACK,
+      );
+      expect(callbacks.enqueue).not.toHaveBeenCalled();
+    });
+
+    it('vận hành chốt đơn cần đối soát → ghi outbox', async () => {
+      setOrder(makeOrder({ status: TransactionStatus.MANUAL_REVIEW }));
+      await service.resolve('TX1', Outcome.SUCCESS, 'đối soát', 'admin-1');
+      expect(callbacks.enqueue).toHaveBeenCalledWith(
+        expect.anything(),
+        'order.completed',
+      );
+    });
+  });
+
   describe('moveToManualReview', () => {
     it('PROCESSING → MANUAL_REVIEW', async () => {
       const order = await service.moveToManualReview(
@@ -317,6 +361,53 @@ describe('OrderStateService', () => {
         service.moveToManualReview('TX1', 'x', EventSource.CHECK),
       ).resolves.toBeNull();
     });
+  });
+
+  describe('reopenForCheck (vận hành cho tra cứu lại)', () => {
+    it('MANUAL_REVIEW → PROCESSING, mở vòng tra cứu mới, xoá lỗi, ghi event', async () => {
+      setOrder(
+        makeOrder({
+          status: TransactionStatus.MANUAL_REVIEW,
+          checkCount: 7,
+          nextCheckAt: null,
+          errorCode: 'MANUAL_REVIEW',
+          errorMessage: 'quá hạn',
+        }),
+      );
+      const before = Date.now();
+      const order = await service.reopenForCheck('TX1', 'thử lại', 'admin-1');
+      expect(order).toMatchObject({
+        status: TransactionStatus.PROCESSING,
+        checkCount: 7,
+        checkWindowBase: 7,
+        resubmitRequested: false,
+        errorCode: null,
+        errorMessage: null,
+      });
+      expect(order.checkWindowStartedAt!.getTime()).toBeGreaterThanOrEqual(
+        before,
+      );
+      expect(order.nextCheckAt).not.toBeNull();
+      expect(events.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          source: EventSource.OPERATOR,
+          type: EventType.RECHECK_REQUESTED,
+          fromStatus: TransactionStatus.MANUAL_REVIEW,
+          toStatus: TransactionStatus.PROCESSING,
+        }),
+      );
+    });
+
+    it.each([TransactionStatus.PROCESSING, TransactionStatus.COMPLETED])(
+      'đơn %s thì báo lỗi, không đổi gì',
+      async (status) => {
+        setOrder(makeOrder({ status }));
+        await expect(
+          service.reopenForCheck('TX1', 'x', 'admin-1'),
+        ).rejects.toBeInstanceOf(InvalidStateTransitionError);
+        expect(orders.update).not.toHaveBeenCalled();
+      },
+    );
   });
 
   describe('resolve (vận hành)', () => {

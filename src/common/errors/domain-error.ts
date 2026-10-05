@@ -5,6 +5,8 @@ export const DomainErrorKind = {
   NOT_FOUND: 'NOT_FOUND',
   CONFLICT: 'CONFLICT',
   UNPROCESSABLE: 'UNPROCESSABLE',
+  /** Hệ thống bên ngoài (NCC) lỗi hoặc không trả lời được. */
+  UPSTREAM: 'UPSTREAM',
 } as const;
 
 export type DomainErrorKindType =

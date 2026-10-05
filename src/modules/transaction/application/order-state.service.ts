@@ -30,6 +30,10 @@ import {
   Outcome,
   SupplierResult,
 } from '@modules/provider-adapter/domain/supplier-result';
+import {
+  callbackEventOf,
+  StoreCallbackRepositoryPort,
+} from '@modules/transaction/domain/store-callback';
 
 export interface ApplyResultOutput {
   order: TransactionEntity;
@@ -52,6 +56,8 @@ export class OrderStateService {
     @Inject(TransactionEventRepositoryPort)
     private readonly events: TransactionEventRepositoryPort,
     private readonly runner: TransactionRunnerPort,
+    @Inject(StoreCallbackRepositoryPort)
+    private readonly callbacks: StoreCallbackRepositoryPort,
     logger: LoggerPort,
   ) {
     this.logger = logger.child(
@@ -162,6 +168,10 @@ export class OrderStateService {
         updated.status,
         EventType.RESULT,
       );
+      const event = isTerminal(updated.status)
+        ? callbackEventOf(updated)
+        : null;
+      if (event) await this.callbacks.enqueue(updated, event);
       if (from !== updated.status) {
         this.logger.info('Đơn đổi trạng thái', {
           transCode,
@@ -242,12 +252,55 @@ export class OrderStateService {
     });
   }
 
+  /**
+   * Vận hành cho đơn MANUAL_REVIEW tra cứu lại: về PROCESSING, mở vòng tra cứu mới
+   * (thời gian chờ và lịch poll tính lại từ đầu). Không gửi lại đơn sang NCC.
+   */
+  reopenForCheck(
+    transCode: string,
+    reason: string,
+    actorId: string,
+  ): Promise<TransactionEntity> {
+    return this.runner.run(async () => {
+      const order = await this.orders.lockByTransCode(transCode);
+      if (!order) throw new OrderNotFoundError(transCode);
+      if (order.status !== TransactionStatus.MANUAL_REVIEW) {
+        throw new InvalidStateTransitionError(
+          `Chỉ tra cứu lại được đơn MANUAL_REVIEW, đơn đang ${order.status}`,
+        );
+      }
+      const updated = await this.save(order, {
+        status: TransactionStatus.PROCESSING,
+        nextCheckAt: new Date(),
+        checkWindowStartedAt: new Date(),
+        checkWindowBase: order.checkCount,
+        resubmitRequested: false,
+        errorCode: null,
+        errorMessage: null,
+      });
+      await this.record(
+        updated,
+        EventSource.OPERATOR,
+        EventType.RECHECK_REQUESTED,
+        {
+          fromStatus: order.status,
+          toStatus: updated.status,
+          message: reason,
+          request: { actorId, reason },
+        },
+      );
+      this.logger.info('Vận hành cho đơn tra cứu lại', { transCode, actorId });
+      return updated;
+    });
+  }
+
   /** Vận hành chốt kết quả cho đơn chưa ở trạng thái cuối. */
   async resolve(
     transCode: string,
     outcome: typeof Outcome.SUCCESS | typeof Outcome.FAILED,
     reason: string,
     actorId: string,
+    details: ResolveDetails = {},
   ): Promise<TransactionEntity> {
     const order = await this.orders.findByTransCode(transCode);
     if (!order) throw new OrderNotFoundError(transCode);
@@ -263,9 +316,18 @@ export class OrderStateService {
         outcome,
         error:
           outcome === Outcome.FAILED
-            ? { code: 'OPERATOR_FAILED', message: reason }
+            ? { code: details.errorCode || 'OPERATOR_FAILED', message: reason }
             : undefined,
-        trace: { request: { actorId, reason }, durationMs: 0 },
+        ...(details.supplierTransId
+          ? { supplierTransId: details.supplierTransId }
+          : {}),
+        ...(outcome === Outcome.SUCCESS && details.delivery
+          ? { delivery: cleanDelivery(details.delivery) }
+          : {}),
+        trace: {
+          request: { actorId, reason, ...details },
+          durationMs: 0,
+        },
       },
       EventSource.OPERATOR,
     );
@@ -332,6 +394,21 @@ export class OrderStateService {
       ...extra,
     });
   }
+}
+
+export interface ResolveDetails {
+  errorCode?: string;
+  supplierTransId?: string;
+  delivery?: OrderDelivery;
+}
+
+function cleanDelivery(delivery: OrderDelivery): OrderDelivery {
+  return Object.fromEntries(
+    Object.entries(delivery).filter(
+      (entry): entry is [string, string] =>
+        typeof entry[1] === 'string' && entry[1].trim() !== '',
+    ),
+  );
 }
 
 function secondsFromNow(seconds: number): Date {

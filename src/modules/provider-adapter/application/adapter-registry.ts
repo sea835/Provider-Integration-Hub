@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { validate, ValidationError } from 'class-validator';
 import {
+  AdapterDescriptor,
   ConnectionTestResult,
   PROVIDER_ADAPTERS,
   ProviderAdapter,
@@ -29,12 +30,25 @@ export class AdapterRegistry extends AdapterSpecPort {
     return [...this.adapters.keys()];
   }
 
+  describe(): AdapterDescriptor[] {
+    return [...this.adapters.values()].map((adapter) => ({
+      type: adapter.type,
+      ...adapter.meta,
+      actions: [...adapter.capabilities.actions],
+      callback: adapter.capabilities.callback,
+      ...(adapter.defaultParams
+        ? { defaultParams: adapter.defaultParams() }
+        : {}),
+    }));
+  }
+
   async validateConfig(
     adapterType: string,
     params: Record<string, unknown>,
     secrets: Record<string, unknown> | null,
   ): Promise<string[]> {
     const adapter = this.get(adapterType);
+    if (adapter.validateConfig) return adapter.validateConfig(params, secrets);
     const issues = await validateAgainst(adapter.paramsClass, params, 'params');
     if (secrets !== null) {
       issues.push(

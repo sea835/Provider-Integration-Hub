@@ -15,6 +15,6 @@ import { AdminMerchantController } from '@modules/merchant/presentation/admin-me
     MerchantApiKeyGuard,
     { provide: MerchantRepositoryPort, useClass: MerchantRepository },
   ],
-  exports: [MerchantAuthService, MerchantApiKeyGuard],
+  exports: [MerchantService, MerchantAuthService, MerchantApiKeyGuard],
 })
 export class MerchantModule {}

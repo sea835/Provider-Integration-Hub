@@ -4,6 +4,10 @@ import { TransactionRunnerPort } from '@common/database/transaction-runner.port'
 import { DomainError } from '@common/errors/domain-error';
 import { AuthenticatedMerchant } from '@modules/merchant/domain/merchant.entity';
 import { OrderActionType } from '@modules/provider-adapter/domain/order-action';
+import {
+  ActionFieldRules,
+  defaultFieldRules,
+} from '@modules/provider-adapter/domain/order-fields';
 import { AdapterRegistry } from '@modules/provider-adapter/application/adapter-registry';
 import { SupplierConfigService } from '@modules/supplier/application/supplier-config.service';
 import { SupplierConfig } from '@modules/supplier/domain/supplier-config';
@@ -39,7 +43,7 @@ export interface AcceptOrderInput {
   action: OrderActionType;
   packageCode: string;
   phone?: string | null;
-  serial?: string | null;f
+  serial?: string | null;
   metadata?: Record<string, unknown>;
 }
 
@@ -86,8 +90,11 @@ export class OrderService {
       throw new InvalidOrderRequestError('metadata tối đa 2KB');
     }
 
-    const fields = resolveOrderFields(input);
     const supplierCode = input.supplierCode.trim().toUpperCase();
+    const fields = resolveOrderFields(
+      input,
+      await this.fieldRulesOf(supplierCode, input.action),
+    );
     const packageCode = input.packageCode.trim();
     const requestHash = hashOrderRequest({
       action: input.action,
@@ -105,8 +112,10 @@ export class OrderService {
       if (existing) return this.asDuplicate(existing, requestHash, input);
 
       const supplier = await this.activeSupplier(supplierCode);
-      const actions = this.adapters.get(supplier.adapterType).capabilities
-        .actions as string[];
+      const adapter = this.adapters.get(supplier.adapterType);
+      const actions: string[] = adapter.supportedActions
+        ? adapter.supportedActions(this.suppliers.toContext(supplier))
+        : adapter.capabilities.actions;
       if (!actions.includes(input.action)) {
         throw new ActionNotSupportedError(supplier.code, input.action);
       }
@@ -161,6 +170,29 @@ export class OrderService {
       });
     }
     return result;
+  }
+
+  /**
+   * Luật trường của NCC cho thao tác này. Không đọc được NCC thì không bắt buộc gì,
+   * để lỗi "NCC không tồn tại / tạm dừng" hiện ra thay vì lỗi thiếu trường.
+   */
+  private async fieldRulesOf(
+    supplierCode: string,
+    action: OrderActionType,
+  ): Promise<ActionFieldRules> {
+    try {
+      const supplier = await this.suppliers.getByCode(supplierCode);
+      const adapter = this.adapters.get(supplier.adapterType);
+      const rules = adapter.fieldRules
+        ? adapter.fieldRules(this.suppliers.toContext(supplier))
+        : defaultFieldRules();
+      return rules[action];
+    } catch (error) {
+      if (error instanceof DomainError) {
+        return { phone: 'OPTIONAL', serial: 'OPTIONAL' };
+      }
+      throw error;
+    }
   }
 
   private async activeSupplier(code: string): Promise<SupplierConfig> {

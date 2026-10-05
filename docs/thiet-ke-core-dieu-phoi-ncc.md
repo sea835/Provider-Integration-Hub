@@ -108,11 +108,11 @@ flowchart LR
   8. Commit, rồi enqueue `SUBMIT` với `jobId = transCode:submit`. Enqueue lỗi thì chỉ log, Sweeper sẽ vớt.
 - **Out 202:** `{ transCode, requestId, status: PENDING, amount, createdAt }`
 - **Lỗi:** 400 `ERR_VALIDATION` · 401 · 403 `ERR_FORBIDDEN_IP` · 402 `ERR_INSUFFICIENT_BALANCE` · 409 `ERR_DUPLICATE_REQUEST_ID` · 422 `ERR_PRODUCT_UNAVAILABLE` / `ERR_ACTION_NOT_SUPPORTED`
-- `transCode = "TX" + uuidv7` (bỏ dấu gạch). Mã này cũng là requestId gửi sang NCC.
+- `transCode = uuidv7()` (dạng chuẩn, không tiền tố). Mã này cũng là requestId gửi sang NCC.
 
 ### G3 — Message trong queue
 ```json
-{ "name": "SUBMIT" | "CHECK", "data": { "transCode": "TX…" }, "jobId": "TX…:submit" | "TX…:check:<n>", "delay": 0 }
+{ "name": "SUBMIT" | "CHECK", "data": { "transCode": "<uuidv7>" }, "jobId": "<uuidv7>:submit" | "<uuidv7>:check:<n>", "delay": 0 }
 ```
 Payload chỉ có `transCode`. Worker luôn đọc lại DB, nên thấy ngay config mới.
 

@@ -97,7 +97,8 @@ export class CheckProcessor {
       return DONE;
     }
 
-    const ageSec = (Date.now() - new Date(current.createdAt).getTime()) / 1000;
+    const windowStart = current.checkWindowStartedAt ?? current.createdAt;
+    const ageSec = (Date.now() - new Date(windowStart).getTime()) / 1000;
     if (ageSec > config.maxWaitSec) {
       await this.state.moveToManualReview(
         transCode,
@@ -110,7 +111,12 @@ export class CheckProcessor {
     const schedule = config.pollScheduleSec;
     const delaySec =
       result.retryAfterSec ??
-      schedule[Math.min(current.checkCount + 1, schedule.length - 1)];
+      schedule[
+        Math.min(
+          current.checkCount - current.checkWindowBase + 1,
+          schedule.length - 1,
+        )
+      ];
     const scheduled = await this.state.scheduleCheck(transCode, delaySec, true);
     if (scheduled) {
       await this.queue.enqueueCheck(

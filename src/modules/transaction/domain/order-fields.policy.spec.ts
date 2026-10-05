@@ -36,4 +36,28 @@ describe('resolveOrderFields', () => {
       resolveOrderFields({ action: 'ACTIVATE_SIM', serial: ' 8984 ' }),
     ).toEqual({ phone: null, serial: '8984' });
   });
+
+  it('luật riêng của NCC: mua data không cần SĐT, kích hoạt SIM bắt buộc serial', () => {
+    expect(
+      resolveOrderFields(
+        { action: 'BUY_DATA' },
+        { phone: 'OPTIONAL', serial: 'OPTIONAL' },
+      ),
+    ).toEqual({ phone: null, serial: null });
+    expect(() =>
+      resolveOrderFields(
+        { action: 'ACTIVATE_SIM', serial: '  ' },
+        { phone: 'OPTIONAL', serial: 'REQUIRED' },
+      ),
+    ).toThrow('Thao tác ACTIVATE_SIM bắt buộc có serial');
+  });
+
+  it('SĐT sai định dạng vẫn bị từ chối dù không bắt buộc', () => {
+    expect(() =>
+      resolveOrderFields(
+        { action: 'BUY_DATA', phone: '123' },
+        { phone: 'OPTIONAL', serial: 'OPTIONAL' },
+      ),
+    ).toThrow(InvalidOrderRequestError);
+  });
 });

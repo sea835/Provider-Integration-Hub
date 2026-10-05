@@ -8,6 +8,8 @@ import {
   TransactionRepositoryPort,
 } from '@modules/transaction/domain/transaction.repository.port';
 import { TransactionRepository } from '@modules/transaction/infrastructure/transaction.repository';
+import { StoreCallbackRepositoryPort } from '@modules/transaction/domain/store-callback';
+import { StoreCallbackRepository } from '@modules/transaction/infrastructure/store-callback.repository';
 import {
   CallbackEventRepository,
   TransactionEventRepository,
@@ -16,6 +18,7 @@ import { OrderService } from '@modules/transaction/application/order.service';
 import { OrderStateService } from '@modules/transaction/application/order-state.service';
 import { OrderQueryService } from '@modules/transaction/application/order-query.service';
 import { CallbackService } from '@modules/transaction/application/callback.service';
+import { OrderReconcileService } from '@modules/transaction/application/order-reconcile.service';
 import { OrderController } from '@modules/transaction/presentation/order.controller';
 import { AdminOrderController } from '@modules/transaction/presentation/admin-order.controller';
 import { CallbackController } from '@modules/transaction/presentation/callback.controller';
@@ -27,6 +30,7 @@ import { CallbackController } from '@modules/transaction/presentation/callback.c
     OrderService,
     OrderStateService,
     OrderQueryService,
+    OrderReconcileService,
     CallbackService,
     { provide: TransactionRepositoryPort, useClass: TransactionRepository },
     {
@@ -34,7 +38,16 @@ import { CallbackController } from '@modules/transaction/presentation/callback.c
       useClass: TransactionEventRepository,
     },
     { provide: CallbackEventRepositoryPort, useClass: CallbackEventRepository },
+    {
+      provide: StoreCallbackRepositoryPort,
+      useClass: StoreCallbackRepository,
+    },
   ],
-  exports: [OrderStateService, OrderQueryService, TransactionRepositoryPort],
+  exports: [
+    OrderStateService,
+    OrderQueryService,
+    TransactionRepositoryPort,
+    StoreCallbackRepositoryPort,
+  ],
 })
 export class TransactionModule {}

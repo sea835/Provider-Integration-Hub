@@ -9,6 +9,15 @@ export class MerchantNotFoundError extends DomainError {
   }
 }
 
+export class MerchantCallbackNotReadyError extends DomainError {
+  readonly code = 'ERR_MERCHANT_CALLBACK_NOT_READY';
+  readonly kind = DomainErrorKind.UNPROCESSABLE;
+
+  constructor(reason: string) {
+    super(reason);
+  }
+}
+
 export class InvalidApiKeyError extends DomainError {
   readonly code = 'ERR_UNAUTHORIZED';
   readonly kind = DomainErrorKind.UNAUTHORIZED;

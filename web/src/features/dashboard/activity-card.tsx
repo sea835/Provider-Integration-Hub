@@ -1,23 +1,18 @@
 "use client";
 
-import { History, PlugZap, RefreshCw, Settings2, UserPlus, type LucideIcon } from "lucide-react";
+import { History, Inbox, UserPlus, type LucideIcon } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 import { useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/states";
-import { LOG_TYPE_META } from "@/features/providers/constants";
-import { LogStatusBadge } from "@/features/providers/provider-visuals";
-import type { ProviderLog, ProviderLogType } from "@/features/providers/types";
+import { actionLabel } from "@/features/suppliers/constants";
+import { OrderStatusBadge } from "@/features/suppliers/supplier-visuals";
+import type { AdminOrder, Supplier } from "@/features/suppliers/types";
 import { roleMeta } from "@/features/users/constants";
 import type { User } from "@/lib/api/types";
 import { formatDateTime, formatRelative } from "@/lib/format";
-
-const LOG_ICONS: Record<ProviderLogType, LucideIcon> = {
-  SYNC: RefreshCw,
-  CONNECTION_TEST: PlugZap,
-  CONFIG_UPDATE: Settings2,
-};
 
 interface ActivityItem {
   id: string;
@@ -25,27 +20,32 @@ interface ActivityItem {
   icon: LucideIcon;
   title: string;
   description: string;
-  href?: `/providers/${string}` | "/users";
-  log?: ProviderLog;
+  href?: Route;
+  order?: AdminOrder;
 }
 
 interface ActivityCardProps {
-  logs: ProviderLog[] | undefined;
+  orders: AdminOrder[] | undefined;
+  suppliers: Supplier[] | undefined;
   users: User[] | undefined;
   isPending: boolean;
 }
 
-export function ActivityCard({ logs, users, isPending }: ActivityCardProps) {
+export function ActivityCard({ orders, suppliers, users, isPending }: ActivityCardProps) {
   const items = useMemo(() => {
-    const fromLogs: ActivityItem[] = (logs ?? []).map((log) => ({
-      id: `log-${log.id}`,
-      at: log.createdAt,
-      icon: LOG_ICONS[log.type],
-      title: `${LOG_TYPE_META[log.type].label} · ${log.providerName}`,
-      description: log.triggeredBy ? `${log.message} — ${log.triggeredBy}` : log.message,
-      href: `/providers/${log.providerId}`,
-      log,
-    }));
+    const supplierIds = new Map((suppliers ?? []).map((supplier) => [supplier.code, supplier.id]));
+    const fromOrders: ActivityItem[] = (orders ?? []).map((order) => {
+      const supplierId = supplierIds.get(order.supplierCode);
+      return {
+        id: `order-${order.id}`,
+        at: order.createdAt,
+        icon: Inbox,
+        title: `${actionLabel(order.action)} · ${order.supplierCode}`,
+        description: `${order.phone ?? order.serial ?? order.packageCode} · ${order.transCode}`,
+        href: supplierId ? (`/suppliers/${supplierId}?tab=orders` as Route) : undefined,
+        order,
+      };
+    });
     const fromUsers: ActivityItem[] = [...(users ?? [])]
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       .slice(0, 6)
@@ -57,15 +57,15 @@ export function ActivityCard({ logs, users, isPending }: ActivityCardProps) {
         description: `${user.email} · ${roleMeta(user.role).label}`,
         href: "/users",
       }));
-    return [...fromLogs, ...fromUsers].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 10);
-  }, [logs, users]);
+    return [...fromOrders, ...fromUsers].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 10);
+  }, [orders, suppliers, users]);
 
   return (
     <Card>
       <CardHeader>
         <div>
           <CardTitle>Hoạt động gần đây</CardTitle>
-          <CardDescription>Đồng bộ, kiểm tra kết nối, thay đổi cấu hình và tài khoản mới.</CardDescription>
+          <CardDescription>Đơn hàng mới gửi tới nhà cung cấp và tài khoản mới.</CardDescription>
         </div>
       </CardHeader>
       <CardContent className="px-2 pb-3">
@@ -85,7 +85,7 @@ export function ActivityCard({ logs, users, isPending }: ActivityCardProps) {
           <EmptyState
             icon={History}
             title="Chưa có hoạt động"
-            description="Các thao tác mới sẽ xuất hiện tại đây."
+            description="Đơn hàng và tài khoản mới sẽ xuất hiện tại đây."
             className="py-8"
           />
         ) : (
@@ -100,7 +100,7 @@ export function ActivityCard({ logs, users, isPending }: ActivityCardProps) {
                   <span className="min-w-0 flex-1">
                     <span className="flex flex-wrap items-center gap-2">
                       <span className="truncate text-sm font-medium">{item.title}</span>
-                      {item.log ? <LogStatusBadge status={item.log.status} /> : null}
+                      {item.order ? <OrderStatusBadge status={item.order.status} /> : null}
                     </span>
                     <span className="mt-0.5 block truncate text-[13px] text-muted-foreground" title={item.description}>
                       {item.description}

@@ -3,7 +3,7 @@ import { uuidv7 } from 'uuidv7';
 
 /** Mã đơn nội bộ, duy nhất toàn hệ thống, cũng là requestId gửi sang NCC. */
 export function newTransCode(): string {
-  return `TX${uuidv7().replace(/-/g, '')}`;
+  return uuidv7();
 }
 
 export interface OrderFingerprint {

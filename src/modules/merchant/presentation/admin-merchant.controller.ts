@@ -20,6 +20,7 @@ import {
   UpdateMerchantRequest,
 } from '@modules/merchant/presentation/dto/merchant.request';
 import {
+  MerchantCallbackSecretResponse,
   MerchantResponse,
   MerchantWithKeyResponse,
 } from '@modules/merchant/presentation/dto/merchant.response';
@@ -83,5 +84,19 @@ export class AdminMerchantController {
       actorId,
     );
     return MerchantWithKeyResponse.withKey(merchant, apiKey);
+  }
+
+  @Post(':id/callback-secret')
+  @ApiOperation({
+    summary:
+      'Tạo khoá ký callback mới (trả một lần, khoá cũ hết hiệu lực ngay)',
+  })
+  async rotateCallbackSecret(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('sub') actorId: string,
+  ): Promise<MerchantCallbackSecretResponse> {
+    const { merchant, secret } =
+      await this.merchantService.rotateCallbackSecret(id, actorId);
+    return MerchantCallbackSecretResponse.withSecret(merchant, secret);
   }
 }

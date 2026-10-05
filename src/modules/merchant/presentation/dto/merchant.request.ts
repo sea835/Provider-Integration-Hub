@@ -1,11 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsArray,
+  IsBoolean,
   IsIn,
   IsIP,
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUrl,
   Matches,
   MaxLength,
 } from 'class-validator';
@@ -53,4 +55,26 @@ export class UpdateMerchantRequest {
   @IsArray()
   @IsIP(undefined, { each: true })
   ipWhitelist?: string[];
+
+  @ApiPropertyOptional({
+    example: 'https://store.example.com/hub/callback',
+    nullable: true,
+    description: 'Hub POST kết quả cuối của đơn về đây. null = xoá',
+  })
+  @IsOptional()
+  @IsUrl(
+    {
+      require_protocol: true,
+      require_tld: false,
+      protocols: ['http', 'https'],
+    },
+    { message: 'Địa chỉ callback phải là URL http hoặc https đầy đủ' },
+  )
+  @MaxLength(1000)
+  callbackUrl?: string | null;
+
+  @ApiPropertyOptional({ description: 'Bật gửi callback (cần URL và khoá ký)' })
+  @IsOptional()
+  @IsBoolean()
+  callbackEnabled?: boolean;
 }

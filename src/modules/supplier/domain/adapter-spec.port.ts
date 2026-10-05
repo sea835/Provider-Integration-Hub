@@ -1,4 +1,5 @@
 import type {
+  AdapterDescriptor,
   ConnectionTestResult,
   SupplierContext,
 } from '@modules/provider-adapter/domain/provider-adapter.port';
@@ -9,6 +10,7 @@ import type {
  */
 export abstract class AdapterSpecPort {
   abstract types(): string[];
+  abstract describe(): AdapterDescriptor[];
   abstract validateConfig(
     adapterType: string,
     params: Record<string, unknown>,

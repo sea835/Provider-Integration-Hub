@@ -16,6 +16,7 @@ export const EventType = {
   CONFLICT: 'CONFLICT',
   RESUBMIT_REQUESTED: 'RESUBMIT_REQUESTED',
   MANUAL_REVIEW: 'MANUAL_REVIEW',
+  RECHECK_REQUESTED: 'RECHECK_REQUESTED',
 } as const;
 
 export type EventTypeType = (typeof EventType)[keyof typeof EventType];

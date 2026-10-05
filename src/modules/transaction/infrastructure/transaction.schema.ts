@@ -41,6 +41,10 @@ export const transactions = pgTable(
     checkCount: integer('check_count').notNull().default(0),
     resubmitRequested: boolean('resubmit_requested').notNull().default(false),
     nextCheckAt: timestamp('next_check_at', { withTimezone: true }),
+    checkWindowStartedAt: timestamp('check_window_started_at', {
+      withTimezone: true,
+    }),
+    checkWindowBase: integer('check_window_base').notNull().default(0),
     delivery: jsonb('delivery').$type<OrderDelivery>().notNull().default({}),
     errorCode: varchar('error_code', { length: 50 }),
     errorMessage: text('error_message'),

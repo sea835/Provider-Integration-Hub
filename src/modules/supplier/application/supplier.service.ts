@@ -20,7 +20,11 @@ import {
   UpdateSupplierInput,
 } from '@modules/supplier/application/supplier.inputs';
 import { SupplierConfigService } from '@modules/supplier/application/supplier-config.service';
-import type { ConnectionTestResult } from '@modules/provider-adapter/domain/provider-adapter.port';
+import type {
+  AdapterDescriptor,
+  ConnectionTestResult,
+  SupplierContext,
+} from '@modules/provider-adapter/domain/provider-adapter.port';
 
 @Injectable()
 export class SupplierService {
@@ -40,6 +44,11 @@ export class SupplierService {
       'Supplier',
       SupplierService.name,
     );
+  }
+
+  /** Các loại adapter có sẵn, kèm trường cấu hình để giao diện dựng form. */
+  adapterTypes(): AdapterDescriptor[] {
+    return this.adapterSpec.describe();
   }
 
   list(query: PaginationQueryDto): Promise<PaginatedResult<SupplierEntity>> {
@@ -118,6 +127,19 @@ export class SupplierService {
       config.adapterType,
       this.configs.toContext(config),
     );
+  }
+
+  /** Ngữ cảnh gọi NCC mới nhất (đã giải mã bí mật) cho tính năng gọi thử của admin. */
+  async liveContext(
+    id: string,
+  ): Promise<{ adapterType: string; ctx: SupplierContext }> {
+    const supplier = await this.get(id);
+    this.configs.invalidateByCode(supplier.code);
+    const config = await this.configs.getById(id);
+    return {
+      adapterType: config.adapterType,
+      ctx: this.configs.toContext(config),
+    };
   }
 
   private async assertValidConfig(

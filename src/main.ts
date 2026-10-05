@@ -21,6 +21,7 @@ function parseTrustProxy(value: string): boolean | number | string {
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bufferLogs: true,
+    rawBody: true,
   });
   app.useLogger(app.get(NestLoggerBridge));
   if (process.env.TRUST_PROXY) {

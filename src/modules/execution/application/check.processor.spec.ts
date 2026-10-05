@@ -33,6 +33,8 @@ function order(overrides: Partial<TransactionEntity> = {}): TransactionEntity {
     supplierTransId: null,
     submitCount: 1,
     checkCount: 0,
+    checkWindowStartedAt: null,
+    checkWindowBase: 0,
     resubmitRequested: false,
     createdAt: new Date(),
     action: 'ACTIVATE_SIM',
@@ -134,6 +136,78 @@ describe('Processors', () => {
     submit = new SubmitProcessor(...deps);
   });
 
+  describe('SubmitProcessor: kiểm tra gói trước khi gửi', () => {
+    let checkPackage: jest.Mock;
+
+    beforeEach(() => {
+      checkPackage = jest.fn(() =>
+        Promise.resolve({
+          eligible: false,
+          reason: { code: 'NCC_NOT_ELIGIBLE', message: 'Không đủ điều kiện' },
+          trace: { durationMs: 2 },
+        }),
+      );
+      Object.assign(adapter, {
+        checkPackage,
+        features: () => ({
+          packages: false,
+          check: true,
+          checkBeforeSubmit: true,
+          orderList: false,
+        }),
+      });
+    });
+
+    it('lần gửi đầu, NCC báo không đăng ký được → FAILED ngay, không gửi đơn', async () => {
+      current = order({ status: TransactionStatus.PENDING, submitCount: 0 });
+      await submit.handle('TX1');
+      expect(checkPackage).toHaveBeenCalledWith(
+        {},
+        {
+          action: 'ACTIVATE_SIM',
+          packageCode: 'plan',
+          phone: null,
+          serial: '8984',
+        },
+      );
+      expect(adapter.submit).not.toHaveBeenCalled();
+      expect(state.applyResult).toHaveBeenCalledWith(
+        'TX1',
+        expect.objectContaining({
+          outcome: 'FAILED',
+          error: { code: 'NCC_NOT_ELIGIBLE', message: 'Không đủ điều kiện' },
+        }),
+        'SUBMIT',
+      );
+    });
+
+    it('chưa rõ (null) hoặc kiểm tra lỗi → vẫn gửi đơn như bình thường', async () => {
+      current = order({ status: TransactionStatus.PENDING, submitCount: 0 });
+      checkPackage.mockResolvedValueOnce({
+        eligible: null,
+        reason: null,
+        trace: { durationMs: 1 },
+      });
+      await submit.handle('TX1');
+      expect(adapter.submit).toHaveBeenCalledTimes(1);
+
+      current = order({ status: TransactionStatus.PENDING, submitCount: 0 });
+      checkPackage.mockRejectedValueOnce(new Error('bug'));
+      await submit.handle('TX1');
+      expect(adapter.submit).toHaveBeenCalledTimes(2);
+    });
+
+    it('lần gửi lại (sau NOT_FOUND) không kiểm tra nữa', async () => {
+      current = order({ resubmitRequested: true, submitCount: 1 });
+      await submit.handle('TX1');
+      expect(checkPackage).not.toHaveBeenCalled();
+      expect(adapter.submit).toHaveBeenCalledWith(
+        {},
+        expect.objectContaining({ attempt: 2 }),
+      );
+    });
+  });
+
   describe('SubmitProcessor', () => {
     it('PENDING từ NCC → hẹn CHECK đầu tiên theo pollScheduleSec[0]', async () => {
       current = order({ status: TransactionStatus.PENDING, submitCount: 0 });
@@ -209,6 +283,29 @@ describe('Processors', () => {
       await check.handle('TX1');
       expect(state.moveToManualReview).toHaveBeenCalled();
       expect(queue.enqueueCheck).not.toHaveBeenCalled();
+    });
+
+    it('vận hành đã mở vòng tra cứu mới → tính hạn chờ và lịch poll từ mốc mới', async () => {
+      current = order({
+        createdAt: new Date(Date.now() - 2 * 3600 * 1000),
+        checkWindowStartedAt: new Date(),
+        checkCount: 7,
+        checkWindowBase: 7,
+      });
+      await check.handle('TX1');
+      expect(state.moveToManualReview).not.toHaveBeenCalled();
+      expect(state.scheduleCheck).toHaveBeenCalledWith('TX1', 10, true);
+    });
+
+    it('vòng tra cứu mới cũng quá hạn → lại MANUAL_REVIEW', async () => {
+      current = order({
+        createdAt: new Date(Date.now() - 5 * 3600 * 1000),
+        checkWindowStartedAt: new Date(Date.now() - 2 * 3600 * 1000),
+        checkWindowBase: 3,
+        checkCount: 9,
+      });
+      await check.handle('TX1');
+      expect(state.moveToManualReview).toHaveBeenCalled();
     });
 
     it('SUCCESS → không hẹn thêm', async () => {

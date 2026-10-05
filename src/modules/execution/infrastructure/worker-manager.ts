@@ -192,6 +192,9 @@ export class WorkerManager
 
   private async startSystemWorker(): Promise<void> {
     this.systemQueue = new Queue(SYSTEM_QUEUE, { connection: this.redis });
+    this.systemQueue.on('error', (error) => {
+      if (!this.stopped) this.logger.error('System queue lỗi', error);
+    });
     await this.systemQueue.upsertJobScheduler(
       SWEEPER_SCHEDULER_ID,
       { every: SWEEP_INTERVAL_MS },

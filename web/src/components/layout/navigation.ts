@@ -1,4 +1,4 @@
-import { LayoutDashboard, PlugZap, ShieldCheck, Users, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, PlugZap, ShieldCheck, Store, Users, type LucideIcon } from "lucide-react";
 import type { Route } from "next";
 import { POLICIES, type Policy } from "@/lib/auth/policies";
 
@@ -21,7 +21,10 @@ export const NAV_SECTIONS: NavSection[] = [
   },
   {
     title: "Tích hợp",
-    items: [{ href: "/providers", label: "Nhà cung cấp", icon: PlugZap, policy: POLICIES.providers.view }],
+    items: [
+      { href: "/suppliers", label: "Nhà cung cấp", icon: PlugZap, policy: POLICIES.suppliers.manage },
+      { href: "/merchants", label: "Store", icon: Store, policy: POLICIES.merchants.manage },
+    ],
   },
   {
     title: "Quản trị",
@@ -38,7 +41,8 @@ export function isActivePath(pathname: string, href: string): boolean {
 }
 
 export const ROUTE_LABELS: Record<string, string> = {
-  providers: "Nhà cung cấp",
+  suppliers: "Nhà cung cấp",
+  merchants: "Store",
   users: "Người dùng",
   access: "Phân quyền",
 };

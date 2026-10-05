@@ -7,6 +7,7 @@ import {
   Post,
   Req,
 } from '@nestjs/common';
+import type { RawBodyRequest } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 import type { Request } from 'express';
@@ -27,10 +28,11 @@ export class CallbackController {
   async receive(
     @Param('supplierCode') supplierCode: string,
     @Body() body: unknown,
-    @Req() req: Request,
+    @Req() req: RawBodyRequest<Request>,
   ): Promise<{ code: number; message: string }> {
     await this.callbacks.handle(supplierCode.toUpperCase(), {
       body,
+      rawBody: req.rawBody?.toString('utf8'),
       headers: req.headers,
       ip: req.ip ?? '',
     });

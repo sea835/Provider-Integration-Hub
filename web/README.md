@@ -1,6 +1,6 @@
 # Provider Integration Hub — Web
 
-Giao diện quản trị cho Provider Integration Hub: đăng nhập, bảng điều khiển, quản lý nhà cung cấp, người dùng và phân quyền động (CASL).
+Giao diện quản trị cho Provider Integration Hub: đăng nhập, bảng điều khiển, tích hợp nhà cung cấp không cần code, theo dõi đơn, người dùng và phân quyền động (CASL).
 
 ## Chạy nhanh
 
@@ -21,10 +21,10 @@ npm run dev          # http://localhost:3001 (backend NestJS mặc định ở c
 
 ## Biến môi trường
 
-| Biến                               | Mặc định                | Ý nghĩa                                                                                                 |
-| ---------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------- |
-| `BACKEND_API_URL`                  | `http://localhost:3000` | Địa chỉ NestJS API. Chỉ dùng phía server (BFF), không lộ ra trình duyệt                                 |
-| `NEXT_PUBLIC_PROVIDER_DATA_SOURCE` | `mock`                  | `mock`: dữ liệu nhà cung cấp mô phỏng trong trình duyệt. `api`: gọi `/providers` thật khi backend đã có |
+| Biến                         | Mặc định                | Ý nghĩa                                                                                           |
+| ---------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------- |
+| `BACKEND_API_URL`            | `http://localhost:3000` | Địa chỉ NestJS API. Chỉ dùng phía server (BFF), không lộ ra trình duyệt                           |
+| `NEXT_PUBLIC_HUB_PUBLIC_URL` | `http://localhost:3000` | Địa chỉ public của Hub, dùng để hiển thị URL callback và lệnh gửi đơn mẫu cho nhà cung cấp, Store |
 
 ## Công nghệ
 
@@ -39,7 +39,7 @@ src/
 │   ├── (auth)/login             Màn hình đăng nhập
 │   ├── (app)/                   Khu vực cần đăng nhập: layout server nạp sẵn phiên + abilities
 │   │   ├── page.tsx             Bảng điều khiển
-│   │   ├── providers/[id]       Danh sách và chi tiết nhà cung cấp
+│   │   ├── suppliers/[id]       Danh sách, chi tiết, cấu hình nhà cung cấp và đơn hàng
 │   │   ├── users                Quản lý người dùng
 │   │   └── access               Vai trò, danh mục quyền, ma trận phân quyền
 │   └── api/
@@ -63,33 +63,35 @@ src/
 - Layout server gọi song song `/auth/me` và `/authorization/me/abilities`, client dựng `MongoAbility` và cung cấp qua `AbilityProvider`.
 - `src/lib/auth/policies.ts` là bảng ánh xạ duy nhất giữa thao tác trên giao diện và quyền, khớp với guard ở backend:
 
-| Khu vực                                 | Yêu cầu                                                            |
-| --------------------------------------- | ------------------------------------------------------------------ |
-| Menu và trang Người dùng                | `manage · User` (khớp `@CheckPolicies` của `UserController`)       |
-| Tạo / sửa / xóa người dùng              | `create` / `update` / `delete · User` (kiểm tra theo từng bản ghi) |
-| Menu và trang Phân quyền                | `manage · all`                                                     |
-| Nhà cung cấp: xem · kiểm tra kết nối    | `read · Provider`                                                  |
-| Nhà cung cấp: thêm / sửa, đồng bộ / xóa | `create` / `update` / `delete · Provider`                          |
+| Khu vực                       | Yêu cầu                                                            |
+| ----------------------------- | ------------------------------------------------------------------ |
+| Menu và trang Người dùng      | `manage · User` (khớp `@CheckPolicies` của `UserController`)       |
+| Tạo / sửa / xóa người dùng    | `create` / `update` / `delete · User` (kiểm tra theo từng bản ghi) |
+| Menu và trang Phân quyền      | `manage · all`                                                     |
+| Menu và trang Nhà cung cấp    | `manage · Supplier` (khớp `@CheckPolicies` của `admin/suppliers`)  |
+| Đơn hàng trên bảng điều khiển | `manage · Transaction` (khớp `@CheckPolicies` của `admin/orders`)  |
 
 - Menu, nút và trang không đủ quyền được ẩn hoặc thay bằng màn hình “không có quyền”. Abilities được làm mới khi quay lại tab sau 5 phút và ngay sau khi lưu ma trận phân quyền.
 
-## Hợp đồng API Nhà cung cấp (backend cần triển khai)
+## Nhà cung cấp
 
-Backend hiện chưa có module Provider. Giao diện đã hoàn chỉnh trên một repository mô phỏng; khi backend có các endpoint dưới đây, đặt `NEXT_PUBLIC_PROVIDER_DATA_SOURCE=api`. Kiểu dữ liệu chi tiết ở `src/features/providers/types.ts`.
+Trang Nhà cung cấp gọi API thật của backend, không còn dữ liệu mô phỏng.
 
-| Method   | Path                             | Trả về                                                                           |
-| -------- | -------------------------------- | -------------------------------------------------------------------------------- |
-| `GET`    | `/providers`                     | `Provider[]`                                                                     |
-| `GET`    | `/providers/:id`                 | `Provider`                                                                       |
-| `POST`   | `/providers`                     | `Provider` (body `ProviderInput`)                                                |
-| `PATCH`  | `/providers/:id`                 | `Provider` (body `ProviderUpdateInput`)                                          |
-| `DELETE` | `/providers/:id`                 | 2xx                                                                              |
-| `POST`   | `/providers/:id/test-connection` | `ConnectionTestResult`                                                           |
-| `POST`   | `/providers/:id/sync`            | `ProviderLog` với `status: "RUNNING"`; giao diện tự poll 2 giây/lần tới khi xong |
-| `GET`    | `/providers/:id/logs?limit=`     | `ProviderLog[]`, mới nhất trước                                                  |
-| `GET`    | `/providers/logs?limit=`         | `ProviderLog[]` của mọi nhà cung cấp, cho bảng điều khiển                        |
+| Method  | Path                                   | Dùng cho                                                         |
+| ------- | -------------------------------------- | ---------------------------------------------------------------- |
+| `GET`   | `/admin/suppliers/adapter-types`       | Các loại kết nối và trường cấu hình của từng loại, để dựng form  |
+| `GET`   | `/admin/suppliers`                     | Danh sách nhà cung cấp                                           |
+| `POST`  | `/admin/suppliers`                     | Thêm nhà cung cấp (luôn ở trạng thái Tạm dừng)                   |
+| `GET`   | `/admin/suppliers/:id`                 | Chi tiết                                                         |
+| `PATCH` | `/admin/suppliers/:id`                 | Sửa cấu hình, bật, tạm dừng, ngừng hẳn; có hiệu lực ngay         |
+| `POST`  | `/admin/suppliers/:id/test-connection` | Thử kết nối                                                      |
+| `GET`   | `/admin/orders?supplierCode=&status=`  | Đơn của một nhà cung cấp, tự làm mới khi còn đơn chưa có kết quả |
+| `GET`   | `/admin/orders/:transCode/events`      | Lịch sử từng lần gọi nhà cung cấp của một đơn                    |
+| `POST`  | `/admin/orders/:transCode/check`       | Tra cứu lại ngay đơn đang xử lý                                  |
 
-Thông tin bí mật (API key, client secret, mật khẩu) chỉ được gửi lên khi người dùng nhập giá trị mới; backend chỉ nên trả về bản tóm tắt (`apiKeyLast4`, `clientId`, `username`, `hasSecret`).
+- Form cấu hình được dựng từ `adapter-types`: thêm một loại kết nối mới ở backend thì giao diện tự có form, không phải sửa web.
+- Thông tin bí mật chỉ gửi lên khi tạo hoặc khi bật "Thay thông tin bí mật"; backend không bao giờ trả lại, chỉ có `hasSecrets`.
+- Bật nhà cung cấp khi chưa thử kết nối thành công chỉ hiện cảnh báo, không chặn.
 
 ## Những điểm backend cần xử lý
 

@@ -1,6 +1,7 @@
 import { Inject, Injectable, OnApplicationShutdown } from '@nestjs/common';
 import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
+import { LoggerPort, LogLayer } from '@common/logger';
 import { OrderQueuePort } from '@modules/transaction/domain/order-queue.port';
 import { REDIS_CONNECTION } from '@infrastructure/queue/redis.provider';
 import {
@@ -22,9 +23,19 @@ export class BullmqOrderQueue
   implements OnApplicationShutdown
 {
   private readonly queues = new Map<string, Queue<OrderJobData>>();
+  private readonly logger: LoggerPort;
+  private closing = false;
 
-  constructor(@Inject(REDIS_CONNECTION) private readonly redis: Redis) {
+  constructor(
+    @Inject(REDIS_CONNECTION) private readonly redis: Redis,
+    logger: LoggerPort,
+  ) {
     super();
+    this.logger = logger.child(
+      LogLayer.INFRASTRUCTURE,
+      'Queue',
+      BullmqOrderQueue.name,
+    );
   }
 
   enqueueSubmit(
@@ -57,6 +68,7 @@ export class BullmqOrderQueue
   }
 
   async onApplicationShutdown(): Promise<void> {
+    this.closing = true;
     await Promise.allSettled([...this.queues.values()].map((q) => q.close()));
   }
 
@@ -96,6 +108,13 @@ export class BullmqOrderQueue
     if (!queue) {
       queue = new Queue<OrderJobData>(supplierQueueName(supplierCode), {
         connection: this.redis,
+      });
+      queue.on('error', (error) => {
+        if (!this.closing) {
+          this.logger.error('Queue lỗi kết nối Redis', error, {
+            supplier: supplierCode,
+          });
+        }
       });
       this.queues.set(supplierCode, queue);
     }

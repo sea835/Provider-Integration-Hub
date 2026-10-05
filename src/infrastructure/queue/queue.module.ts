@@ -8,6 +8,8 @@ import {
 } from '@infrastructure/queue/redis.provider';
 import { BullmqOrderQueue } from '@infrastructure/queue/bullmq-order-queue';
 import { RedisSupplierEvents } from '@infrastructure/queue/redis-supplier-events';
+import { RedisTokenStore } from '@infrastructure/queue/redis-token-store';
+import { TokenStorePort } from '@modules/provider-adapter/domain/token-store.port';
 
 @Global()
 @Module({
@@ -17,8 +19,15 @@ import { RedisSupplierEvents } from '@infrastructure/queue/redis-supplier-events
     { provide: OrderQueuePort, useExisting: BullmqOrderQueue },
     RedisSupplierEvents,
     { provide: SupplierEventsPort, useExisting: RedisSupplierEvents },
+    RedisTokenStore,
+    { provide: TokenStorePort, useExisting: RedisTokenStore },
   ],
-  exports: [REDIS_CONNECTION, OrderQueuePort, SupplierEventsPort],
+  exports: [
+    REDIS_CONNECTION,
+    OrderQueuePort,
+    SupplierEventsPort,
+    TokenStorePort,
+  ],
 })
 export class QueueModule implements OnApplicationShutdown {
   constructor(@Inject(REDIS_CONNECTION) private readonly redis: Redis) {}

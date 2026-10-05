@@ -26,6 +26,13 @@ class FakeSecrets {
  */
 export class FakeAdapter implements ProviderAdapter {
   readonly type = 'FAKE';
+  readonly meta = {
+    label: 'NCC giả cho e2e',
+    description: 'Kết quả theo kịch bản của từng số điện thoại',
+    editor: 'FIELDS' as const,
+    params: [],
+    secrets: [{ key: 'token', label: 'Token', required: false }],
+  };
   readonly capabilities = {
     actions: ['BUY_DATA' as const],
     callback: true,

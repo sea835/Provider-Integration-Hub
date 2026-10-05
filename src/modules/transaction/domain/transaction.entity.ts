@@ -22,6 +22,10 @@ export class TransactionEntity extends BaseEntity {
   checkCount: number;
   resubmitRequested: boolean;
   nextCheckAt: Date | null;
+  /** Mốc bắt đầu vòng tra cứu hiện tại (null = từ lúc tạo đơn). Vận hành tra cứu lại thì đặt mới. */
+  checkWindowStartedAt: Date | null;
+  /** checkCount tại lúc mở vòng tra cứu hiện tại, để lịch poll chạy lại từ đầu. */
+  checkWindowBase: number;
   delivery: OrderDelivery;
   errorCode: string | null;
   errorMessage: string | null;

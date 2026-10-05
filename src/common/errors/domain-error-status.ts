@@ -9,4 +9,5 @@ export const DOMAIN_ERROR_STATUS: Record<DomainErrorKindType, HttpStatus> = {
   NOT_FOUND: HttpStatus.NOT_FOUND,
   CONFLICT: HttpStatus.CONFLICT,
   UNPROCESSABLE: HttpStatus.UNPROCESSABLE_ENTITY,
+  UPSTREAM: HttpStatus.BAD_GATEWAY,
 };

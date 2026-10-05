@@ -449,7 +449,7 @@ src/modules/transaction/
       - `BUY_DATA`, `TOPUP` cần `phone`.
       - `ACTIVATE_SIM` với gói loại `SIM` cần `serial`.
       - `CANCEL_PACKAGE` báo `ActionNotSupportedError` (P1 chưa hỗ trợ).
-   5. `transCode = 'TX' + uuidv7().replaceAll('-', '')`.
+   5. `transCode = uuidv7()`.
    6. `insert … onConflictDoNothing({ target: [merchantId, partnerTransId] }).returning()`. Không có dòng trả về nghĩa là có request trùng chạy song song: đọc lại và xử lý như bước 2.
    7. `WalletService.debit(merchantId, order.id, price)`.
    8. Ghi event `ACCEPTED`.

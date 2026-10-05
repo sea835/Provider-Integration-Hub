@@ -12,13 +12,14 @@ export const POLICIES = {
   access: {
     manage: ["manage", "all"] as Policy,
   },
-  providers: {
-    view: ["read", "Provider"] as Policy,
-    create: ["create", "Provider"] as Policy,
-    update: ["update", "Provider"] as Policy,
-    remove: ["delete", "Provider"] as Policy,
-    sync: ["update", "Provider"] as Policy,
-    test: ["read", "Provider"] as Policy,
+  suppliers: {
+    manage: ["manage", "Supplier"] as Policy,
+  },
+  orders: {
+    manage: ["manage", "Transaction"] as Policy,
+  },
+  merchants: {
+    manage: ["manage", "Merchant"] as Policy,
   },
 } as const;
 
@@ -35,7 +36,9 @@ export const ACTION_LABELS: Record<string, string> = {
 export const SUBJECT_LABELS: Record<string, string> = {
   all: "Mọi tài nguyên",
   User: "Người dùng",
-  Provider: "Nhà cung cấp",
+  Supplier: "Nhà cung cấp",
+  Transaction: "Đơn hàng",
+  Merchant: "Store",
   Role: "Vai trò",
   Permission: "Quyền hạn",
 };

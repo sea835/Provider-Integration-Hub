@@ -11,7 +11,14 @@ import { SupplierConfigService } from '@modules/supplier/application/supplier-co
 import { SupplierConfig } from '@modules/supplier/domain/supplier-config';
 import { SupplierStatus } from '@modules/supplier/domain/supplier-status';
 import { AdapterRegistry } from '@modules/provider-adapter/application/adapter-registry';
-import { SupplierResult } from '@modules/provider-adapter/domain/supplier-result';
+import {
+  Outcome,
+  SupplierResult,
+} from '@modules/provider-adapter/domain/supplier-result';
+import {
+  ProviderAdapter,
+  SupplierContext,
+} from '@modules/provider-adapter/domain/provider-adapter.port';
 import {
   callAdapter,
   delay,
@@ -63,20 +70,28 @@ export class SubmitProcessor {
 
     const adapter = this.adapters.get(config.adapterType);
     const ctx = this.configs.toContext(config);
-    const { result, error } = await callAdapter(() =>
-      adapter.submit(ctx, {
-        transCode,
-        action: submitting.action,
-        packageCode: submitting.packageCode,
-        phone: submitting.phone,
-        serial: submitting.serial,
-      }),
-    );
-    if (error) {
-      this.logger.error('Adapter submit throw', error, {
-        transCode,
-        supplier: config.code,
-      });
+    const rejected = await this.rejectedByCheck(adapter, ctx, submitting);
+    let result: SupplierResult;
+    if (rejected) {
+      result = rejected;
+    } else {
+      const called = await callAdapter(() =>
+        adapter.submit(ctx, {
+          transCode,
+          action: submitting.action,
+          packageCode: submitting.packageCode,
+          phone: submitting.phone,
+          serial: submitting.serial,
+          attempt: submitting.submitCount,
+        }),
+      );
+      result = called.result;
+      if (called.error) {
+        this.logger.error('Adapter submit throw', called.error, {
+          transCode,
+          supplier: config.code,
+        });
+      }
     }
 
     const applied = await this.state.applyResult(
@@ -88,6 +103,51 @@ export class SubmitProcessor {
       await this.scheduleFirstCheck(applied.order, config, result);
     }
     return DONE;
+  }
+
+  /**
+   * Kiểm tra gói trước lần gửi ĐẦU TIÊN (NCC bật "kiểm tra trước khi gửi").
+   * Chỉ chặn khi NCC nói rõ không đăng ký được; lỗi hoặc chưa rõ thì vẫn gửi.
+   * Không kiểm tra ở lần gửi lại: NCC có thể đã nhận đơn trước đó nên trả "không đăng ký được" sai.
+   */
+  private async rejectedByCheck(
+    adapter: ProviderAdapter,
+    ctx: SupplierContext,
+    order: TransactionEntity,
+  ): Promise<SupplierResult | null> {
+    if (order.submitCount !== 1 || !adapter.checkPackage) return null;
+    try {
+      if (!adapter.features?.(ctx).checkBeforeSubmit) return null;
+      const check = await adapter.checkPackage(ctx, {
+        action: order.action,
+        packageCode: order.packageCode,
+        phone: order.phone,
+        serial: order.serial,
+      });
+      if (check.eligible !== false) return null;
+      this.logger.info('Gói không đăng ký được, không gửi đơn', {
+        transCode: order.transCode,
+        supplier: ctx.supplierCode,
+        reason: check.reason?.code,
+      });
+      return {
+        outcome: Outcome.FAILED,
+        error: {
+          code: check.reason?.code ?? 'PACKAGE_NOT_ELIGIBLE',
+          message:
+            check.reason?.message ??
+            'Nhà cung cấp báo không đăng ký được gói này',
+        },
+        trace: check.trace,
+      };
+    } catch (error) {
+      this.logger.warn('Kiểm tra gói lỗi, vẫn gửi đơn', {
+        transCode: order.transCode,
+        supplier: ctx.supplierCode,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
   }
 
   private async scheduleFirstCheck(

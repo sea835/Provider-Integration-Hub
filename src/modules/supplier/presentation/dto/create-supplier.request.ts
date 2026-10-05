@@ -27,8 +27,8 @@ export class CreateSupplierRequest extends SupplierTuningRequest {
   name: string;
 
   @ApiProperty({
-    example: 'ANISIM',
-    description: 'Loại adapter đã được biên dịch',
+    example: 'HTTP_CONFIG',
+    description: 'Loại kết nối: HUB_STANDARD hoặc HTTP_CONFIG (tự cấu hình)',
   })
   @IsString()
   @IsNotEmpty()

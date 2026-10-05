@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
   IsIn,
   IsNotEmpty,
@@ -8,6 +9,7 @@ import {
   IsUUID,
   Matches,
   MaxLength,
+  ValidateNested,
 } from 'class-validator';
 import { PaginationQueryDto } from '@common/base/pagination.dto';
 import { ORDER_ACTION_VALUES } from '@modules/provider-adapter/domain/order-action';
@@ -89,6 +91,32 @@ export class AdminOrderQuery extends PaginationQueryDto {
   merchantId?: string;
 }
 
+export class ResolveDeliveryRequest {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  msisdn?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  serial?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  lpa?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  qrUrl?: string;
+}
+
 export class ResolveOrderRequest {
   @ApiProperty({ enum: ['SUCCESS', 'FAILED'] })
   @IsIn(['SUCCESS', 'FAILED'])
@@ -99,4 +127,37 @@ export class ResolveOrderRequest {
   @IsNotEmpty()
   @MaxLength(500)
   reason: string;
+
+  @ApiPropertyOptional({
+    example: 'ANI_SIM_UNAVAILABLE',
+    description: 'Chỉ khi FAILED. Mặc định OPERATOR_FAILED',
+  })
+  @IsOptional()
+  @Matches(/^[A-Za-z0-9_.:-]{1,50}$/, {
+    message: 'errorCode viết liền, tối đa 50 ký tự',
+  })
+  errorCode?: string;
+
+  @ApiPropertyOptional({ description: 'Mã đơn phía NCC (khi đối soát tìm ra)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  supplierTransId?: string;
+
+  @ApiPropertyOptional({
+    type: () => ResolveDeliveryRequest,
+    description: 'Chỉ khi SUCCESS: thông tin giao cho khách',
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ResolveDeliveryRequest)
+  delivery?: ResolveDeliveryRequest;
+}
+
+export class RecheckOrderRequest {
+  @ApiPropertyOptional({ example: 'NCC báo đã xử lý xong, cho tra cứu lại' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  reason?: string;
 }

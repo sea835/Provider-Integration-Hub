@@ -63,12 +63,14 @@ const VALUE_TYPE_LABELS: Record<BodyField["type"], string> = {
   string: "Chữ",
   number: "Số",
   boolean: "Đúng/sai",
+  array: "Danh sách",
 };
 
 export interface VariableOptions {
   vars: string[];
   secrets: string[];
   token?: boolean;
+  extra?: Array<{ key: string; label: string }>;
 }
 
 export type VariableList = Array<[string, string]>;
@@ -179,6 +181,16 @@ export function TemplateInput({
               <span className="ml-auto pl-3 text-[11.5px] text-muted-foreground">{label}</span>
             </DropdownMenuItem>
           ))}
+          {(variables.extra ?? [])
+            .filter((field) => field.key)
+            .map((field) => (
+              <DropdownMenuItem key={`extra-${field.key}`} onSelect={() => insert(`order.extra.${field.key}`)}>
+                <span className="font-mono text-[12px]">order.extra.{field.key}</span>
+                <span className="ml-auto pl-3 text-[11.5px] text-muted-foreground">
+                  {field.label || "Trường thêm Store gửi"}
+                </span>
+              </DropdownMenuItem>
+            ))}
           {variables.vars.length > 0 ? (
             <>
               <DropdownMenuSeparator />

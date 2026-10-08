@@ -20,3 +20,40 @@ export function defaultFieldRules(): OrderFieldRules {
     CANCEL_PACKAGE: { phone: 'OPTIONAL', serial: 'OPTIONAL' },
   };
 }
+
+export const EXTRA_FIELD_TYPES = [
+  'TEXT',
+  'NUMBER',
+  'DATE',
+  'TEXT_LIST',
+] as const;
+export type ExtraFieldType = (typeof EXTRA_FIELD_TYPES)[number];
+
+export const EXTRA_FIELD_KEY = /^[A-Za-z][A-Za-z0-9_]{0,39}$/;
+export const MAX_EXTRA_FIELDS = 20;
+
+/**
+ * Trường thêm NCC cần mà Hub không có sẵn (vd ngày kích hoạt eSIM, email, danh sách ICCID).
+ * Store gửi trong `extra`, cấu hình dùng qua `{{order.extra.<key>}}`.
+ */
+export interface OrderExtraField {
+  key: string;
+  label: string;
+  type: ExtraFieldType;
+  required: boolean;
+  /** Rỗng = áp cho mọi thao tác. */
+  actions: OrderActionType[];
+  description: string;
+}
+
+export type OrderExtraValue = string | number | string[];
+export type OrderExtra = Record<string, OrderExtraValue>;
+
+export function extraFieldsFor(
+  fields: OrderExtraField[],
+  action: OrderActionType,
+): OrderExtraField[] {
+  return fields.filter(
+    (field) => field.actions.length === 0 || field.actions.includes(action),
+  );
+}

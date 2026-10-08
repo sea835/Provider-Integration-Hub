@@ -3,7 +3,10 @@ import {
   OrderAction,
   OrderActionType,
 } from '@modules/provider-adapter/domain/order-action';
-import { OrderFieldRules } from '@modules/provider-adapter/domain/order-fields';
+import {
+  OrderExtraField,
+  OrderFieldRules,
+} from '@modules/provider-adapter/domain/order-fields';
 import {
   AdapterFeatures,
   ConnectionTestResult,
@@ -126,6 +129,10 @@ export class HttpConfigAdapter implements ProviderAdapter {
 
   fieldRules(ctx: SupplierContext): OrderFieldRules {
     return parseParams(ctx.params).params.spec.fields;
+  }
+
+  extraFields(ctx: SupplierContext): OrderExtraField[] {
+    return parseParams(ctx.params).params.spec.extraFields;
   }
 
   features(ctx: SupplierContext): AdapterFeatures {

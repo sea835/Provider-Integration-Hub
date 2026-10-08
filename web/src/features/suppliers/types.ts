@@ -100,6 +100,7 @@ export interface AdminOrder {
   configVersion: number;
   phone: string | null;
   serial: string | null;
+  extra: Record<string, string | number | string[]>;
   submitCount: number;
   checkCount: number;
   resubmitRequested: boolean;

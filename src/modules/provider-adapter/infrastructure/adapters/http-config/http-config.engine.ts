@@ -18,7 +18,8 @@ import {
   IntegrationSpec,
   OrderMapping,
   RequestSpec,
-  SignatureSpec,
+  HttpMethod,
+  SignatureRule,
 } from '@modules/provider-adapter/infrastructure/adapters/http-config/http-config.types';
 import {
   allMatch,
@@ -46,6 +47,7 @@ export interface OrderInput {
   phone: string | null;
   serial: string | null;
   supplierTransId: string | null;
+  extra?: Record<string, unknown>;
 }
 
 export interface BuiltRequest {
@@ -56,6 +58,10 @@ export interface BuiltRequest {
   /** Body dạng đối tượng để ghi trace (chưa che bí mật). */
   bodyForTrace?: unknown;
   signature?: string;
+  /** Đúng chuỗi đã đem ký, để người cấu hình đối chiếu với tài liệu NCC. */
+  signedPayload?: string;
+  /** Tên quy tắc chữ ký đã dùng. */
+  signatureRule?: string;
 }
 
 /** Kết quả phân loại kèm lời giải thích để giao diện "Phân loại thử" hiển thị. */
@@ -98,6 +104,7 @@ export function requestScope(
     order: order
       ? {
           ...order,
+          extra: order.extra ?? {},
           phone84: phone ? `84${phone.slice(1)}` : null,
           phone9: phone ? phone.slice(1) : null,
         }
@@ -119,12 +126,20 @@ export function requestScope(
 }
 
 function typed(value: unknown, type: string): unknown {
+  if (type === 'array' && isEmpty(value)) return [];
   if (isEmpty(value)) return value ?? null;
   if (type === 'number') {
     const num = Number(value);
     return Number.isFinite(num) ? num : asString(value);
   }
   if (type === 'boolean') return asString(value) === 'true';
+  if (type === 'array') {
+    if (Array.isArray(value)) return value;
+    return asString(value)
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
   return typeof value === 'string' ? value : asString(value);
 }
 
@@ -140,9 +155,23 @@ const HASH_ALGORITHMS: Record<string, string> = {
   MD5: 'md5',
 };
 
+/** Quy tắc chữ ký đầu tiên khớp lời gọi và phương thức; không có thì không ký. */
+export function signatureRuleFor(
+  spec: IntegrationSpec,
+  kind: CallKind,
+  method: HttpMethod,
+): SignatureRule | undefined {
+  if (!spec.signature.enabled) return undefined;
+  return spec.signature.rules.find(
+    (rule) =>
+      rule.apply[kind] &&
+      (rule.methods.length === 0 || rule.methods.includes(method)),
+  );
+}
+
 /** Tính chữ ký theo cấu hình. Không phụ thuộc NCC nào. */
 export function computeSignature(
-  signature: SignatureSpec,
+  signature: SignatureRule,
   payload: string,
   scope: Scope,
 ): string {
@@ -226,11 +255,12 @@ export function buildRequest(
     bodyForTrace = body;
   }
 
-  const sign = spec.signature;
+  const sign = signatureRuleFor(spec, kind, request.method);
   let signature: string | undefined;
-  if (sign.enabled && sign.apply[kind]) {
+  let signedPayload: string | undefined;
+  if (sign) {
     const unsigned = rawBody ?? '';
-    const payload =
+    signedPayload =
       sign.input === 'BODY'
         ? unsigned
         : render(sign.template, {
@@ -238,14 +268,15 @@ export function buildRequest(
             request: {
               method: request.method,
               path: `${url.pathname}${url.search}`,
+              query: url.search.replace(/^\?/, ''),
               body: unsigned,
             },
           });
-    signature = computeSignature(sign, payload, scope);
+    signature = computeSignature(sign, signedPayload, scope);
     if (sign.target === 'HEADER') {
       headers[sign.name] = signature;
     } else if (body) {
-      body[sign.name] = signature;
+      setPath(body, sign.name, signature);
       rawBody = JSON.stringify(body);
     } else if (form) {
       form.append(sign.name, signature);
@@ -264,7 +295,9 @@ export function buildRequest(
     url: url.toString(),
     headers,
     ...(rawBody !== undefined ? { rawBody, bodyForTrace } : {}),
-    ...(signature ? { signature } : {}),
+    ...(signature && sign
+      ? { signature, signedPayload, signatureRule: sign.label }
+      : {}),
   };
 }
 

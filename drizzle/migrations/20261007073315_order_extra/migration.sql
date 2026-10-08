@@ -1,0 +1,1 @@
+ALTER TABLE "transactions" ADD COLUMN "extra" jsonb DEFAULT '{}' NOT NULL;

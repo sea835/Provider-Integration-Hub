@@ -12,6 +12,15 @@ export interface OrderFingerprint {
   packageCode: string;
   phone: string | null;
   serial: string | null;
+  extra?: Record<string, unknown>;
+}
+
+function sortKeys(value: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.keys(value)
+      .sort()
+      .map((key) => [key, value[key]]),
+  );
 }
 
 /** Hash nội dung đơn để phân biệt gửi lại (cùng hash) với dùng trùng requestId (khác hash). */
@@ -22,6 +31,9 @@ export function hashOrderRequest(fp: OrderFingerprint): string {
     phone: fp.phone,
     serial: fp.serial,
     supplierCode: fp.supplierCode,
+    ...(fp.extra && Object.keys(fp.extra).length > 0
+      ? { extra: sortKeys(fp.extra) }
+      : {}),
   });
   return createHash('sha256').update(canonical).digest('hex');
 }

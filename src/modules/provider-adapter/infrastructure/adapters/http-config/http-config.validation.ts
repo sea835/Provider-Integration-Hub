@@ -3,7 +3,11 @@ import {
   OrderActionType,
 } from '@modules/provider-adapter/domain/order-action';
 import {
+  EXTRA_FIELD_KEY,
+  EXTRA_FIELD_TYPES,
   FIELD_RULES,
+  MAX_EXTRA_FIELDS,
+  OrderExtraField,
   OrderFieldRules,
 } from '@modules/provider-adapter/domain/order-fields';
 import {
@@ -16,6 +20,7 @@ import {
   CallKind,
   CheckSpec,
   Condition,
+  defaultSignatureRule,
   defaultSpec,
   HTTP_METHODS,
   HttpConfigParams,
@@ -24,6 +29,7 @@ import {
   OPERATORS,
   ORDER_OUTCOMES,
   MATCH_BY,
+  MAX_SIGNATURE_RULES,
   OrderMapping,
   OrdersSpec,
   PackagesSpec,
@@ -37,6 +43,7 @@ import {
   SIGN_ENCODINGS,
   SIGN_INPUTS,
   SIGN_TARGETS,
+  SignatureRule,
   SignatureSpec,
   StatusMapping,
   TokenSpec,
@@ -230,48 +237,80 @@ function readToken(r: Reader, raw: unknown, base: TokenSpec): TokenSpec {
   };
 }
 
+function readSignatureRule(
+  r: Reader,
+  raw: unknown,
+  path: string,
+): SignatureRule {
+  const base = defaultSignatureRule();
+  const o = r.object(raw, path);
+  const apply = r.object(o.apply, `${path}.apply`);
+  return {
+    label: r.string(o.label, `${path}.label`, base.label).slice(0, 60),
+    methods: [
+      ...new Set(
+        r.list(o.methods, `${path}.methods`, (item, at) =>
+          r.oneOf(item, HTTP_METHODS, at, 'GET'),
+        ),
+      ),
+    ],
+    algorithm: r.oneOf(
+      o.algorithm,
+      SIGN_ALGORITHMS,
+      `${path}.algorithm`,
+      base.algorithm,
+    ),
+    key: r.string(o.key, `${path}.key`),
+    input: r.oneOf(o.input, SIGN_INPUTS, `${path}.input`, base.input),
+    template: r.string(o.template, `${path}.template`),
+    encoding: r.oneOf(
+      o.encoding,
+      SIGN_ENCODINGS,
+      `${path}.encoding`,
+      base.encoding,
+    ),
+    target: r.oneOf(o.target, SIGN_TARGETS, `${path}.target`, base.target),
+    name: r.string(o.name, `${path}.name`, base.name),
+    apply: Object.fromEntries(
+      CALL_KINDS.map((kind) => [
+        kind,
+        r.boolean(apply[kind], `${path}.apply.${kind}`, base.apply[kind]),
+      ]),
+    ) as Record<CallKind, boolean>,
+  };
+}
+
+/** Nhận cả dạng cũ (một chữ ký phẳng) lẫn dạng mới (danh sách quy tắc). */
 function readSignature(
   r: Reader,
   raw: unknown,
   base: SignatureSpec,
 ): SignatureSpec {
   const o = r.object(raw, 'spec.signature');
-  const apply = r.object(o.apply, 'spec.signature.apply');
-  return {
-    enabled: r.boolean(o.enabled, 'spec.signature.enabled'),
-    algorithm: r.oneOf(
-      o.algorithm,
-      SIGN_ALGORITHMS,
-      'spec.signature.algorithm',
-      base.algorithm,
-    ),
-    key: r.string(o.key, 'spec.signature.key'),
-    input: r.oneOf(o.input, SIGN_INPUTS, 'spec.signature.input', base.input),
-    template: r.string(o.template, 'spec.signature.template'),
-    encoding: r.oneOf(
-      o.encoding,
-      SIGN_ENCODINGS,
-      'spec.signature.encoding',
-      base.encoding,
-    ),
-    target: r.oneOf(
-      o.target,
-      SIGN_TARGETS,
-      'spec.signature.target',
-      base.target,
-    ),
-    name: r.string(o.name, 'spec.signature.name', base.name),
-    apply: Object.fromEntries(
-      CALL_KINDS.map((kind) => [
-        kind,
-        r.boolean(
-          apply[kind],
-          `spec.signature.apply.${kind}`,
-          base.apply[kind],
-        ),
-      ]),
-    ) as Record<CallKind, boolean>,
-  };
+  const enabled = r.boolean(o.enabled, 'spec.signature.enabled');
+  if (o.rules === undefined) {
+    const legacy = [
+      'algorithm',
+      'key',
+      'input',
+      'template',
+      'name',
+      'apply',
+    ].some((field) => o[field] !== undefined);
+    return {
+      enabled,
+      rules: legacy
+        ? [readSignatureRule(r, o, 'spec.signature')]
+        : base.rules.map((rule) => ({ ...rule })),
+    };
+  }
+  const rules = r.list(o.rules, 'spec.signature.rules', (item, at) =>
+    readSignatureRule(r, item, at),
+  );
+  if (rules.length > MAX_SIGNATURE_RULES) {
+    r.issues.push(`spec.signature.rules tối đa ${MAX_SIGNATURE_RULES} quy tắc`);
+  }
+  return { enabled, rules: rules.slice(0, MAX_SIGNATURE_RULES) };
 }
 
 function readPackages(
@@ -413,6 +452,43 @@ function readFields(
   ) as OrderFieldRules;
 }
 
+function readExtraFields(r: Reader, raw: unknown): OrderExtraField[] {
+  const fields = r.list(raw, 'spec.extraFields', (item, at) => {
+    const o = r.object(item, at);
+    const key = r.string(o.key, `${at}.key`).trim();
+    if (!EXTRA_FIELD_KEY.test(key)) {
+      r.issues.push(
+        `${at}.key phải bắt đầu bằng chữ, chỉ gồm chữ, số, gạch dưới (tối đa 40 ký tự)`,
+      );
+    }
+    return {
+      key,
+      label: r.string(o.label, `${at}.label`).slice(0, 100),
+      type: r.oneOf(o.type, EXTRA_FIELD_TYPES, `${at}.type`, 'TEXT'),
+      required: r.boolean(o.required, `${at}.required`),
+      actions: [
+        ...new Set(
+          r.list(o.actions, `${at}.actions`, (action, path) =>
+            r.oneOf(action, ORDER_ACTION_VALUES, path, 'BUY_DATA'),
+          ),
+        ),
+      ],
+      description: r.string(o.description, `${at}.description`).slice(0, 300),
+    };
+  });
+  if (fields.length > MAX_EXTRA_FIELDS) {
+    r.issues.push(`spec.extraFields tối đa ${MAX_EXTRA_FIELDS} trường`);
+  }
+  const seen = new Set<string>();
+  for (const field of fields) {
+    if (seen.has(field.key)) {
+      r.issues.push(`spec.extraFields: trùng tên trường ${field.key}`);
+    }
+    seen.add(field.key);
+  }
+  return fields.slice(0, MAX_EXTRA_FIELDS);
+}
+
 function readRule(r: Reader, raw: unknown, path: string): Rule {
   const o = r.object(raw, path);
   return {
@@ -485,6 +561,7 @@ function readSpec(r: Reader, raw: unknown): IntegrationSpec {
   return {
     actions: [...new Set<OrderActionType>(actions)],
     fields: readFields(r, o.fields, base.fields),
+    extraFields: readExtraFields(r, o.extraFields),
     auth: readAuth(r, o.auth),
     token: readToken(r, o.token, base.token),
     signature: readSignature(r, o.signature, base.signature),
@@ -611,7 +688,7 @@ function references(spec: IntegrationSpec): string[] {
     spec.check.enabled ? spec.check.request : null,
     spec.orders.enabled ? spec.orders.request : null,
     spec.signature.enabled
-      ? [spec.signature.key, spec.signature.template]
+      ? spec.signature.rules.map((rule) => [rule.key, rule.template])
       : null,
   ]);
   const found = new Set<string>();
@@ -774,6 +851,59 @@ function pathIssues(params: HttpConfigParams): string[] {
 }
 
 /** Những gì còn thiếu để chạy được. Không chặn lưu; giao diện hiện cảnh báo. */
+const EXTRA_REFERENCE = /order\.extra\.([A-Za-z0-9_]+)/g;
+
+/** Cấu hình dùng {{order.extra.X}} mà chưa khai báo X thì Store không gửi được, giá trị luôn rỗng. */
+function extraReferenceIssues(spec: IntegrationSpec): string[] {
+  const declared = new Set(spec.extraFields.map((field) => field.key));
+  const text = JSON.stringify({ ...spec, extraFields: [] });
+  const missing = new Set<string>();
+  for (const match of text.matchAll(EXTRA_REFERENCE)) {
+    if (!declared.has(match[1])) missing.add(match[1]);
+  }
+  return [...missing].map(
+    (key) =>
+      `Đang dùng {{order.extra.${key}}} nhưng chưa khai báo trường thêm "${key}" ở mục Thao tác và trường Store phải gửi`,
+  );
+}
+
+function signatureIssues(spec: IntegrationSpec): string[] {
+  const { rules } = spec.signature;
+  if (rules.length === 0) {
+    return ['Chữ ký: đang bật nhưng chưa có quy tắc nào'];
+  }
+  const issues: string[] = [];
+  const covered = new Set<string>();
+  rules.forEach((rule, index) => {
+    const label =
+      rules.length === 1
+        ? 'Chữ ký'
+        : `Chữ ký "${rule.label || `quy tắc ${index + 1}`}"`;
+    if (!rule.name) {
+      issues.push(`${label}: chưa đặt tên trường hoặc header chứa chữ ký`);
+    }
+    if (rule.algorithm.startsWith('HMAC') && !rule.key) {
+      issues.push(`${label}: chưa nhập khoá ký (vd {{secrets.secretKey}})`);
+    }
+    if (rule.input === 'TEMPLATE' && !rule.template) {
+      issues.push(`${label}: chưa nhập chuỗi cần ký`);
+    }
+    const methods = rule.methods.length ? rule.methods : HTTP_METHODS;
+    const slots = CALL_KINDS.filter((kind) => rule.apply[kind]).flatMap(
+      (kind) => methods.map((method) => `${kind}:${method}`),
+    );
+    if (slots.length === 0) {
+      issues.push(`${label}: chưa chọn lời gọi nào để ký`);
+    } else if (slots.every((slot) => covered.has(slot))) {
+      issues.push(
+        `${label}: không bao giờ được dùng vì các quy tắc phía trên đã phủ hết lời gọi của nó`,
+      );
+    }
+    slots.forEach((slot) => covered.add(slot));
+  });
+  return issues;
+}
+
 export function readinessIssues(params: HttpConfigParams): string[] {
   const { spec } = params;
   const issues: string[] = [];
@@ -842,17 +972,8 @@ export function readinessIssues(params: HttpConfigParams): string[] {
       issues.push('Đăng nhập lấy token: chưa chọn vị trí token trong phản hồi');
     }
   }
-  if (spec.signature.enabled) {
-    if (!spec.signature.name) {
-      issues.push('Chữ ký: chưa đặt tên trường hoặc header chứa chữ ký');
-    }
-    if (spec.signature.algorithm.startsWith('HMAC') && !spec.signature.key) {
-      issues.push('Chữ ký: chưa nhập khoá ký (vd {{secrets.secretKey}})');
-    }
-    if (spec.signature.input === 'TEMPLATE' && !spec.signature.template) {
-      issues.push('Chữ ký: chưa nhập chuỗi cần ký');
-    }
-  }
+  if (spec.signature.enabled) issues.push(...signatureIssues(spec));
+  issues.push(...extraReferenceIssues(spec));
   issues.push(...pathIssues(params));
   for (const ref of references(spec)) {
     if (ref === 'token') {

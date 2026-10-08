@@ -4,6 +4,7 @@ import {
 } from '@modules/provider-adapter/domain/order-action';
 import {
   defaultFieldRules,
+  OrderExtraField,
   OrderFieldRules,
 } from '@modules/provider-adapter/domain/order-fields';
 
@@ -20,7 +21,8 @@ export type HttpMethod = (typeof HTTP_METHODS)[number];
 export const BODY_TYPES = ['NONE', 'JSON', 'FORM'] as const;
 export type BodyType = (typeof BODY_TYPES)[number];
 
-export const VALUE_TYPES = ['string', 'number', 'boolean'] as const;
+/** array: giá trị là danh sách (vd `{{order.extra.iccids}}`); chuỗi "a,b" tách theo dấu phẩy. */
+export const VALUE_TYPES = ['string', 'number', 'boolean', 'array'] as const;
 export type ValueType = (typeof VALUE_TYPES)[number];
 
 export const AUTH_TYPES = [
@@ -234,8 +236,13 @@ export interface TokenSpec {
   refreshOn: Condition[];
 }
 
-export interface SignatureSpec {
-  enabled: boolean;
+/**
+ * Một cách ký. Request dùng quy tắc ĐẦU TIÊN khớp cả lời gọi (apply) lẫn phương thức
+ * (methods rỗng = mọi phương thức), nên mỗi API / mỗi phương thức ký theo cách riêng được.
+ */
+export interface SignatureRule {
+  label: string;
+  methods: HttpMethod[];
   algorithm: SignAlgorithm;
   key: string;
   input: SignInput;
@@ -246,10 +253,40 @@ export interface SignatureSpec {
   apply: Record<CallKind, boolean>;
 }
 
+export interface SignatureSpec {
+  enabled: boolean;
+  rules: SignatureRule[];
+}
+
+export const MAX_SIGNATURE_RULES = 10;
+
+export const defaultSignatureRule = (): SignatureRule => ({
+  label: 'Chữ ký',
+  methods: [],
+  algorithm: 'HMAC_SHA256',
+  key: '',
+  input: 'BODY',
+  template: '',
+  encoding: 'HEX',
+  target: 'BODY_FIELD',
+  name: 'signature',
+  apply: {
+    login: false,
+    packages: false,
+    check: false,
+    submit: true,
+    query: false,
+    orders: false,
+    test: false,
+  },
+});
+
 export interface IntegrationSpec {
   actions: OrderActionType[];
   /** Store bắt buộc gửi SĐT / serial cho từng thao tác. */
   fields: OrderFieldRules;
+  /** Trường thêm Store gửi trong `extra` (vd activationDate), dùng qua {{order.extra.<key>}}. */
+  extraFields: OrderExtraField[];
   auth: AuthSpec;
   token: TokenSpec;
   signature: SignatureSpec;
@@ -288,6 +325,7 @@ export function defaultSpec(): IntegrationSpec {
   return {
     actions: [...ORDER_ACTION_VALUES].filter((a) => a !== 'CANCEL_PACKAGE'),
     fields: defaultFieldRules(),
+    extraFields: [],
     auth: { type: 'NONE', name: '', value: '', username: '', password: '' },
     token: {
       enabled: false,
@@ -298,25 +336,7 @@ export function defaultSpec(): IntegrationSpec {
       ttlSec: 3600,
       refreshOn: [{ path: 'http.status', operator: 'IN', values: ['401'] }],
     },
-    signature: {
-      enabled: false,
-      algorithm: 'HMAC_SHA256',
-      key: '',
-      input: 'BODY',
-      template: '',
-      encoding: 'HEX',
-      target: 'BODY_FIELD',
-      name: 'signature',
-      apply: {
-        login: false,
-        packages: false,
-        check: false,
-        submit: true,
-        query: false,
-        orders: false,
-        test: false,
-      },
-    },
+    signature: { enabled: false, rules: [defaultSignatureRule()] },
     headers: [],
     packages: {
       enabled: false,

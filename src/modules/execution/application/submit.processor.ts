@@ -82,6 +82,7 @@ export class SubmitProcessor {
           packageCode: submitting.packageCode,
           phone: submitting.phone,
           serial: submitting.serial,
+          extra: submitting.extra ?? {},
           attempt: submitting.submitCount,
         }),
       );
@@ -123,6 +124,7 @@ export class SubmitProcessor {
         packageCode: order.packageCode,
         phone: order.phone,
         serial: order.serial,
+        extra: order.extra ?? {},
       });
       if (check.eligible !== false) return null;
       this.logger.info('Gói không đăng ký được, không gửi đơn', {

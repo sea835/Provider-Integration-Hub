@@ -1,4 +1,4 @@
-import type { Condition, IntegrationParams, IntegrationSpec, RequestSpec } from "./types";
+import type { Condition, ExtraField, IntegrationParams, IntegrationSpec, RequestSpec, SignatureRule } from "./types";
 
 type Plain = Record<string, unknown>;
 
@@ -28,6 +28,21 @@ const request = (method: RequestSpec["method"]): RequestSpec => ({
 
 const http2xx = (): Condition => ({ path: "http.status", operator: "IN", values: ["2xx"] });
 
+export function emptySignatureRule(label = "Chữ ký"): SignatureRule {
+  return {
+    label,
+    methods: [],
+    algorithm: "HMAC_SHA256",
+    key: "",
+    input: "BODY",
+    template: "",
+    encoding: "HEX",
+    target: "BODY_FIELD",
+    name: "signature",
+    apply: { login: false, packages: false, check: false, submit: true, query: false, orders: false, test: false },
+  };
+}
+
 export function emptySpec(): IntegrationSpec {
   return {
     actions: ["BUY_DATA", "TOPUP", "ACTIVATE_SIM"],
@@ -37,6 +52,7 @@ export function emptySpec(): IntegrationSpec {
       ACTIVATE_SIM: { phone: "OPTIONAL", serial: "OPTIONAL" },
       CANCEL_PACKAGE: { phone: "OPTIONAL", serial: "OPTIONAL" },
     },
+    extraFields: [],
     auth: { type: "NONE", name: "", value: "", username: "", password: "" },
     token: {
       enabled: false,
@@ -47,17 +63,7 @@ export function emptySpec(): IntegrationSpec {
       ttlSec: 3600,
       refreshOn: [{ path: "http.status", operator: "IN", values: ["401"] }],
     },
-    signature: {
-      enabled: false,
-      algorithm: "HMAC_SHA256",
-      key: "",
-      input: "BODY",
-      template: "",
-      encoding: "HEX",
-      target: "BODY_FIELD",
-      name: "signature",
-      apply: { login: false, packages: false, check: false, submit: true, query: false, orders: false, test: false },
-    },
+    signature: { enabled: false, rules: [emptySignatureRule()] },
     headers: [],
     packages: {
       enabled: false,
@@ -137,13 +143,43 @@ function migrateLegacyQuery(spec: unknown): unknown {
   };
 }
 
+const LEGACY_SIGNATURE_FIELDS = ["algorithm", "key", "input", "template", "name", "apply"];
+
+function migrateSignature(spec: unknown): unknown {
+  if (!isPlain(spec) || !isPlain(spec.signature)) return spec;
+  const signature = spec.signature;
+  const legacy = signature.rules === undefined && LEGACY_SIGNATURE_FIELDS.some((field) => field in signature);
+  const rawRules = Array.isArray(signature.rules) ? signature.rules : legacy ? [signature] : [emptySignatureRule()];
+  const rules = rawRules.map((rule) => {
+    const merged = mergeDefaults(emptySignatureRule(), rule) as SignatureRule & { enabled?: unknown };
+    delete merged.enabled;
+    return merged;
+  });
+  return { ...spec, signature: { enabled: signature.enabled === true, rules } };
+}
+
+export function emptyExtraField(): ExtraField {
+  return { key: "", label: "", type: "TEXT", required: false, actions: [], description: "" };
+}
+
+function migrateExtraFields(spec: unknown): unknown {
+  if (!isPlain(spec) || !Array.isArray(spec.extraFields)) return spec;
+  return {
+    ...spec,
+    extraFields: spec.extraFields.filter(isPlain).map((field) => mergeDefaults(emptyExtraField(), field)),
+  };
+}
+
 export function toIntegrationParams(raw: unknown): IntegrationParams {
   const source = isPlain(raw) ? raw : {};
   const vars = isPlain(source.vars)
     ? Object.fromEntries(Object.entries(source.vars).map(([key, value]) => [key, String(value ?? "")]))
     : {};
   const secretKeys = Array.isArray(source.secretKeys) ? source.secretKeys.map(String) : [];
-  const spec = mergeDefaults(emptySpec(), migrateLegacyQuery(source.spec)) as IntegrationSpec & {
+  const spec = mergeDefaults(
+    emptySpec(),
+    migrateExtraFields(migrateSignature(migrateLegacyQuery(source.spec))),
+  ) as IntegrationSpec & {
     query: { list?: unknown };
   };
   delete spec.query.list;

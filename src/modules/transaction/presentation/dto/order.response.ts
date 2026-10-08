@@ -1,3 +1,4 @@
+import type { OrderExtra } from '@modules/provider-adapter/domain/order-fields';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { TransactionEntity } from '@modules/transaction/domain/transaction.entity';
 import { TransactionEventEntity } from '@modules/transaction/domain/transaction-event';
@@ -23,6 +24,8 @@ export class OrderResponse {
   @ApiProperty() packageCode: string;
   @ApiPropertyOptional({ nullable: true }) phone: string | null;
   @ApiPropertyOptional({ nullable: true }) serial: string | null;
+  @ApiProperty({ type: Object, description: 'Trường thêm Store đã gửi' })
+  extra: OrderExtra;
   @ApiProperty({ type: Object }) delivery: OrderDelivery;
   @ApiPropertyOptional({ type: OrderErrorResponse, nullable: true })
   error: OrderErrorResponse | null;
@@ -40,6 +43,7 @@ export class OrderResponse {
       packageCode: entity.packageCode,
       phone: entity.phone,
       serial: entity.serial,
+      extra: entity.extra ?? {},
       delivery: entity.delivery ?? {},
       error:
         status === TransactionStatus.FAILED
@@ -68,6 +72,8 @@ export class AdminOrderResponse {
   @ApiProperty() configVersion: number;
   @ApiPropertyOptional({ nullable: true }) phone: string | null;
   @ApiPropertyOptional({ nullable: true }) serial: string | null;
+  @ApiProperty({ type: Object, description: 'Trường thêm Store đã gửi' })
+  extra: OrderExtra;
   @ApiProperty() submitCount: number;
   @ApiProperty() checkCount: number;
   @ApiProperty() resubmitRequested: boolean;
@@ -93,6 +99,7 @@ export class AdminOrderResponse {
       configVersion: entity.configVersion,
       phone: entity.phone,
       serial: entity.serial,
+      extra: entity.extra ?? {},
       submitCount: entity.submitCount,
       checkCount: entity.checkCount,
       resubmitRequested: entity.resubmitRequested,

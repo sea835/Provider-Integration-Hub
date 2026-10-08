@@ -53,6 +53,7 @@ export function tabOfSection(id: SectionId): IntegrationTabId {
 }
 
 const PROBLEM_SECTIONS: Array<[RegExp, SectionId]> = [
+  [/spec\.extraFields|order\.extra/i, "actions"],
   [/spec\.token|Đăng nhập lấy token|\{\{token\}\}/i, "token"],
   [/spec\.signature|Chữ ký/i, "signature"],
   [/spec\.packages\.request|Danh sách gói: chưa nhập đường dẫn/i, "packagesApi"],

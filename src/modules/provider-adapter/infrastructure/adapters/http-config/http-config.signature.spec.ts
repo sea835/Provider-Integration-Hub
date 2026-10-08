@@ -7,14 +7,14 @@ import {
   HttpConfigParams,
   IntegrationSpec,
   RequestSpec,
-  SignatureSpec,
+  SignatureRule,
 } from '@modules/provider-adapter/infrastructure/adapters/http-config/http-config.types';
 import { parseParams } from '@modules/provider-adapter/infrastructure/adapters/http-config/http-config.validation';
 
 const KEY = 'k_sign_123';
 
 function setup(
-  signature: Partial<SignatureSpec>,
+  signature: Partial<SignatureRule> & { enabled?: boolean },
   request: Partial<RequestSpec> = {},
   headers: IntegrationSpec['headers'] = [],
 ): { params: HttpConfigParams; request: RequestSpec } {

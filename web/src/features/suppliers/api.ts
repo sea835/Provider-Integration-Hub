@@ -94,6 +94,8 @@ export interface IntegrationPreviewOutput {
     headers: Record<string, string>;
     body: unknown;
     signature: string | null;
+    signedPayload: string | null;
+    signatureRule: string | null;
   } | null;
   result: {
     outcome: string;

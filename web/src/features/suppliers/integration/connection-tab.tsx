@@ -18,22 +18,11 @@ import {
   RequestEditor,
   SmallSelect,
   TemplateInput,
-  type VariableList,
 } from "./fields";
 import { requestSummary, Section, type EditorKit } from "./section";
-import {
-  AUTH_TYPES,
-  CALL_KINDS,
-  FIELD_RULES,
-  INTEGRATION_ACTIONS,
-  SIGN_ALGORITHMS,
-  SIGN_ENCODINGS,
-  SIGN_INPUTS,
-  SIGN_TARGETS,
-  type CallKind,
-  type IntegrationSpec,
-  type SignatureSpec,
-} from "./types";
+import { ExtraFieldsEditor } from "./extra-fields-editor";
+import { SignatureSection } from "./signature-section";
+import { AUTH_TYPES, FIELD_RULES, INTEGRATION_ACTIONS, type IntegrationSpec } from "./types";
 
 const AUTH_LABELS: Record<IntegrationSpec["auth"]["type"], string> = {
   NONE: "Không cần xác thực",
@@ -42,47 +31,6 @@ const AUTH_LABELS: Record<IntegrationSpec["auth"]["type"], string> = {
   BASIC: "Tên đăng nhập + mật khẩu (Basic)",
   QUERY: "Khoá trên URL",
 };
-
-const ALGORITHM_LABELS: Record<SignatureSpec["algorithm"], string> = {
-  HMAC_SHA256: "HMAC-SHA256",
-  HMAC_SHA512: "HMAC-SHA512",
-  HMAC_SHA1: "HMAC-SHA1",
-  HMAC_MD5: "HMAC-MD5",
-  SHA256: "SHA-256 (không khoá)",
-  MD5: "MD5 (không khoá)",
-};
-
-const SIGN_INPUT_LABELS: Record<SignatureSpec["input"], string> = {
-  BODY: "Body gửi đi (chưa có chữ ký)",
-  TEMPLATE: "Chuỗi tự ghép",
-};
-
-const SIGN_ENCODING_LABELS: Record<SignatureSpec["encoding"], string> = {
-  HEX: "Hex chữ thường",
-  HEX_UPPER: "Hex chữ hoa",
-  BASE64: "Base64",
-};
-
-const SIGN_TARGET_LABELS: Record<SignatureSpec["target"], string> = {
-  BODY_FIELD: "Trường trong body",
-  HEADER: "Header",
-};
-
-const CALL_KIND_LABELS: Record<CallKind, string> = {
-  login: "Đăng nhập",
-  packages: "Danh sách gói",
-  check: "Kiểm tra gói",
-  submit: "Đăng ký gói",
-  query: "Kiểm tra trạng thái",
-  orders: "Danh sách đơn",
-  test: "Kiểm tra kết nối",
-};
-
-const REQUEST_VARIABLES: VariableList = [
-  ["request.method", "Phương thức (GET, POST...)"],
-  ["request.path", "Đường dẫn kèm tham số URL"],
-  ["request.body", "Body gửi đi, chưa có chữ ký"],
-];
 
 const TOKEN_REFERENCE = /\{\{\s*token\s*\}\}/;
 
@@ -193,7 +141,6 @@ export function ConnectionTab({
   const { spec } = kit;
   const auth = spec.auth;
   const token = spec.token;
-  const sign = spec.signature;
   const usesToken = TOKEN_REFERENCE.test(
     JSON.stringify([auth, spec.headers, spec.submit.request, spec.query.request, spec.test.request]),
   );
@@ -422,123 +369,7 @@ export function ConnectionTab({
         ) : null}
       </Section>
 
-      <Section
-        {...kit.section("signature")}
-        state={sign.enabled}
-        summary={
-          sign.enabled
-            ? `${ALGORITHM_LABELS[sign.algorithm]} · ${SIGN_TARGET_LABELS[sign.target]} ${sign.name}`
-            : "Không dùng"
-        }
-        title="Chữ ký"
-        description="Dùng khi nhà cung cấp bắt ký request (vd HMAC-SHA256 trên body). Hub tự tính và gắn chữ ký cho các lời gọi được chọn."
-      >
-        <FieldRow label="Bật chữ ký">
-          <Switch
-            checked={sign.enabled}
-            onCheckedChange={(enabled) => kit.set(["signature", "enabled"], enabled)}
-            aria-label="Bật chữ ký"
-          />
-        </FieldRow>
-        {sign.enabled ? (
-          <>
-            <FieldRow label="Thuật toán">
-              <SmallSelect
-                value={sign.algorithm}
-                onChange={(algorithm) => kit.set(["signature", "algorithm"], algorithm)}
-                options={SIGN_ALGORITHMS}
-                labels={ALGORITHM_LABELS}
-                ariaLabel="Thuật toán ký"
-                className="sm:w-72"
-              />
-            </FieldRow>
-            {sign.algorithm.startsWith("HMAC") ? (
-              <FieldRow label="Khoá ký" hint="Thường là một bí mật do nhà cung cấp cấp.">
-                <TemplateInput
-                  value={sign.key}
-                  onChange={(value) => kit.set(["signature", "key"], value)}
-                  variables={kit.loginVariables}
-                  ariaLabel="Khoá ký"
-                  placeholder="{{secrets.secretKey}}"
-                />
-              </FieldRow>
-            ) : null}
-            <FieldRow label="Ký trên">
-              <SmallSelect
-                value={sign.input}
-                onChange={(input) => kit.set(["signature", "input"], input)}
-                options={SIGN_INPUTS}
-                labels={SIGN_INPUT_LABELS}
-                ariaLabel="Nội dung cần ký"
-                className="sm:w-72"
-              />
-            </FieldRow>
-            {sign.input === "TEMPLATE" ? (
-              <FieldRow label="Chuỗi cần ký" hint="Ghép từ biến, vd {{vars.partnerCode}}|{{order.transCode}}.">
-                <TemplateInput
-                  value={sign.template}
-                  onChange={(value) => kit.set(["signature", "template"], value)}
-                  variables={kit.variables}
-                  extra={{ label: "Request", items: REQUEST_VARIABLES }}
-                  ariaLabel="Chuỗi cần ký"
-                  placeholder="{{request.method}}|{{request.path}}|{{request.body}}"
-                />
-              </FieldRow>
-            ) : null}
-            <FieldRow label="Dạng chữ ký">
-              <SmallSelect
-                value={sign.encoding}
-                onChange={(encoding) => kit.set(["signature", "encoding"], encoding)}
-                options={SIGN_ENCODINGS}
-                labels={SIGN_ENCODING_LABELS}
-                ariaLabel="Dạng chữ ký"
-                className="sm:w-72"
-              />
-            </FieldRow>
-            <FieldRow label="Gắn chữ ký vào" hint="Lời gọi không có body thì chữ ký gắn lên URL.">
-              <div className="grid grid-cols-1 gap-2 @md:grid-cols-[180px_minmax(0,1fr)]">
-                <SmallSelect
-                  value={sign.target}
-                  onChange={(target) => kit.set(["signature", "target"], target)}
-                  options={SIGN_TARGETS}
-                  labels={SIGN_TARGET_LABELS}
-                  ariaLabel="Nơi gắn chữ ký"
-                />
-                <Input
-                  value={sign.name}
-                  onChange={(event) => kit.set(["signature", "name"], event.target.value)}
-                  placeholder={sign.target === "HEADER" ? "X-Signature" : "signature"}
-                  aria-label="Tên trường hoặc header chứa chữ ký"
-                  spellCheck={false}
-                  className="h-8 font-mono text-[13px]"
-                />
-              </div>
-            </FieldRow>
-            <FieldRow label="Ký các lời gọi">
-              <div className="flex flex-wrap gap-4 pt-1.5">
-                {CALL_KINDS.filter(
-                  (kind) =>
-                    (kind !== "login" || token.enabled) &&
-                    (kind !== "packages" || spec.packages.enabled) &&
-                    (kind !== "check" || spec.check.enabled) &&
-                    (kind !== "orders" || spec.orders.enabled),
-                ).map((kind) => (
-                  <div key={kind} className="flex items-center gap-2">
-                    <Checkbox
-                      id={`sign-${kind}`}
-                      checked={sign.apply[kind]}
-                      onCheckedChange={(checked) => kit.set(["signature", "apply", kind], checked === true)}
-                    />
-                    <Label htmlFor={`sign-${kind}`} className="text-[13px] font-normal">
-                      {CALL_KIND_LABELS[kind]}
-                    </Label>
-                  </div>
-                ))}
-              </div>
-            </FieldRow>
-          </>
-        ) : null}
-      </Section>
+      <SignatureSection kit={kit} />
 
       <Section
         {...kit.section("actions")}
@@ -554,6 +385,11 @@ export function ConnectionTab({
                   return needs.length > 0 ? `${actionLabel(action)} (cần ${needs.join(", ")})` : actionLabel(action);
                 })
                 .join(" · ")
+                .concat(
+                  spec.extraFields.length > 0
+                    ? ` · thêm ${spec.extraFields.map((field) => field.key || "?").join(", ")}`
+                    : "",
+                )
             : "Chưa chọn"
         }
         title="Thao tác và trường Store phải gửi"
@@ -622,6 +458,7 @@ export function ConnectionTab({
             Số thuê bao gửi kèm luôn được kiểm tra định dạng (10 số, bắt đầu 0 hoặc 84), kể cả khi không bắt buộc.
           </p>
         </div>
+        <ExtraFieldsEditor kit={kit} />
       </Section>
     </>
   );

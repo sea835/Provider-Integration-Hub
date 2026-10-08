@@ -125,6 +125,13 @@ export function OrderEventsSheet({ order: selected, onClose }: { order: AdminOrd
                     {order.phone ? ` · ${order.phone}` : ""}
                     {order.serial ? ` · serial ${order.serial}` : ""} · mã Store{" "}
                     <span className="font-mono">{order.requestId}</span>
+                    {Object.entries(order.extra ?? {}).map(([key, value]) => (
+                      <span key={key}>
+                        {" · "}
+                        {key}{" "}
+                        <span className="font-mono">{Array.isArray(value) ? value.join(", ") : String(value)}</span>
+                      </span>
+                    ))}
                   </DialogPrimitive.Description>
                   {order.errorCode ? (
                     <p className="text-[13px] text-danger">

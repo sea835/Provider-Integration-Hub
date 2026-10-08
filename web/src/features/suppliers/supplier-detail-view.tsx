@@ -197,12 +197,22 @@ function StoreExampleCard({ supplier, adapter }: { supplier: Supplier; adapter: 
   const actions =
     adapter?.editor === "HTTP_CONFIG" ? toIntegrationParams(supplier.params).spec.actions : (adapter?.actions ?? []);
   const action = actions[0] ?? "BUY_DATA";
+  const extraFields =
+    adapter?.editor === "HTTP_CONFIG"
+      ? toIntegrationParams(supplier.params).spec.extraFields.filter(
+          (field) => field.key && (field.actions.length === 0 || field.actions.includes(action)),
+        )
+      : [];
+  const extraSample: Record<string, unknown> = { TEXT: "abc", NUMBER: 1, DATE: "2026-10-15", TEXT_LIST: ["8988..."] };
   const body = {
     requestId: "DON-0001",
     supplierCode: supplier.code,
     action,
     packageCode: "MA_GOI",
     ...(action === "ACTIVATE_SIM" ? { serial: "8984012601500769003" } : { phone: "0912345678" }),
+    ...(extraFields.length > 0
+      ? { extra: Object.fromEntries(extraFields.map((field) => [field.key, extraSample[field.type]])) }
+      : {}),
   };
   const curl = `curl -X POST ${HUB_PUBLIC_URL}/v1/orders \\
   -H "x-api-key: <API key của Store>" \\

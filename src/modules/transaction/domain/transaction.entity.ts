@@ -2,6 +2,7 @@ import { BaseEntity } from '@common/base/base.entity';
 import { TransactionStatusType } from '@modules/transaction/domain/transaction-status';
 import { OrderActionType } from '@modules/provider-adapter/domain/order-action';
 import { OrderDelivery } from '@modules/provider-adapter/domain/supplier-result';
+import { OrderExtra } from '@modules/provider-adapter/domain/order-fields';
 
 /** Đơn đăng ký Store gửi qua Core sang NCC. */
 export class TransactionEntity extends BaseEntity {
@@ -17,6 +18,8 @@ export class TransactionEntity extends BaseEntity {
   configVersion: number;
   phone: string | null;
   serial: string | null;
+  /** Trường thêm theo khai báo của NCC (vd activationDate), đã kiểm tra kiểu. */
+  extra: OrderExtra;
   supplierTransId: string | null;
   submitCount: number;
   checkCount: number;

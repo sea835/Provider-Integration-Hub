@@ -7,6 +7,7 @@ import { OrderActionType } from '@modules/provider-adapter/domain/order-action';
 import {
   ActionFieldRules,
   defaultFieldRules,
+  OrderExtraField,
 } from '@modules/provider-adapter/domain/order-fields';
 import { AdapterRegistry } from '@modules/provider-adapter/application/adapter-registry';
 import { SupplierConfigService } from '@modules/supplier/application/supplier-config.service';
@@ -29,6 +30,7 @@ import {
   SupplierUnavailableError,
 } from '@modules/transaction/domain/transaction.errors';
 import { resolveOrderFields } from '@modules/transaction/domain/order-fields.policy';
+import { resolveOrderExtra } from '@modules/transaction/domain/order-extra.policy';
 import { OrderQueuePort } from '@modules/transaction/domain/order-queue.port';
 import {
   hashOrderRequest,
@@ -44,7 +46,14 @@ export interface AcceptOrderInput {
   packageCode: string;
   phone?: string | null;
   serial?: string | null;
+  extra?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
+}
+
+interface SupplierOrderRules {
+  fields: ActionFieldRules;
+  /** null: chưa đọc được NCC, để lỗi NCC hiện ra thay vì lỗi trường thêm. */
+  extra: OrderExtraField[] | null;
 }
 
 export interface AcceptOrderResult {
@@ -91,10 +100,11 @@ export class OrderService {
     }
 
     const supplierCode = input.supplierCode.trim().toUpperCase();
-    const fields = resolveOrderFields(
-      input,
-      await this.fieldRulesOf(supplierCode, input.action),
-    );
+    const rules = await this.orderRulesOf(supplierCode, input.action);
+    const fields = resolveOrderFields(input, rules.fields);
+    const extra = rules.extra
+      ? resolveOrderExtra(input.action, input.extra, rules.extra)
+      : {};
     const packageCode = input.packageCode.trim();
     const requestHash = hashOrderRequest({
       action: input.action,
@@ -102,6 +112,7 @@ export class OrderService {
       packageCode,
       phone: fields.phone,
       serial: fields.serial,
+      extra,
     });
 
     const result = await this.runner.run(async () => {
@@ -133,6 +144,7 @@ export class OrderService {
         configVersion: supplier.version,
         phone: fields.phone,
         serial: fields.serial,
+        extra,
         metadata: input.metadata ?? null,
       });
 
@@ -176,20 +188,27 @@ export class OrderService {
    * Luật trường của NCC cho thao tác này. Không đọc được NCC thì không bắt buộc gì,
    * để lỗi "NCC không tồn tại / tạm dừng" hiện ra thay vì lỗi thiếu trường.
    */
-  private async fieldRulesOf(
+  private async orderRulesOf(
     supplierCode: string,
     action: OrderActionType,
-  ): Promise<ActionFieldRules> {
+  ): Promise<SupplierOrderRules> {
     try {
       const supplier = await this.suppliers.getByCode(supplierCode);
       const adapter = this.adapters.get(supplier.adapterType);
+      const ctx = this.suppliers.toContext(supplier);
       const rules = adapter.fieldRules
-        ? adapter.fieldRules(this.suppliers.toContext(supplier))
+        ? adapter.fieldRules(ctx)
         : defaultFieldRules();
-      return rules[action];
+      return {
+        fields: rules[action],
+        extra: adapter.extraFields ? adapter.extraFields(ctx) : [],
+      };
     } catch (error) {
       if (error instanceof DomainError) {
-        return { phone: 'OPTIONAL', serial: 'OPTIONAL' };
+        return {
+          fields: { phone: 'OPTIONAL', serial: 'OPTIONAL' },
+          extra: null,
+        };
       }
       throw error;
     }

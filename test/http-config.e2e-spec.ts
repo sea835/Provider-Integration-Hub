@@ -380,4 +380,111 @@ describe('Tự cấu hình: tích hợp ANI SIM trên giao diện (e2e)', () => 
     });
     await activate('8984000000000001').expect(202);
   });
+
+  it('trường thêm (extra): NCC khai báo ngày kích hoạt + ICCID → Hub kiểm tra rồi gửi đúng kiểu', async () => {
+    const spec = anisim.spec as {
+      submit: { request: { body: Record<string, unknown>[] } };
+    };
+    await http
+      .patch(`/admin/suppliers/${supplierId}`)
+      .set(admin())
+      .send({
+        params: {
+          ...anisim,
+          spec: {
+            ...(anisim.spec as Record<string, unknown>),
+            extraFields: [
+              {
+                key: 'activationDate',
+                label: 'Ngày kích hoạt',
+                type: 'DATE',
+                required: true,
+                actions: ['ACTIVATE_SIM'],
+              },
+              { key: 'iccids', label: 'ICCID', type: 'TEXT_LIST' },
+            ],
+            submit: {
+              ...spec.submit,
+              request: {
+                ...spec.submit.request,
+                body: [
+                  ...spec.submit.request.body,
+                  {
+                    key: 'activationDate',
+                    value: '{{order.extra.activationDate}}',
+                    type: 'string',
+                  },
+                  {
+                    key: 'iccids',
+                    value: '{{order.extra.iccids}}',
+                    type: 'array',
+                    omitIfEmpty: true,
+                  },
+                ],
+              },
+            },
+          },
+        },
+      })
+      .expect(200);
+    await new Promise((r) => setTimeout(r, 300));
+
+    const send = (extra: Record<string, unknown> | undefined) =>
+      http
+        .post('/v1/orders')
+        .set({ 'x-api-key': apiKey })
+        .send({
+          requestId: `REQ-${run}-${seq++}`,
+          supplierCode,
+          action: 'ACTIVATE_SIM',
+          packageCode: 'plan-esim-5gb',
+          ...(extra ? { extra } : {}),
+        });
+
+    expect((await send(undefined).expect(400)).body).toMatchObject({
+      message:
+        'Thao tác ACTIVATE_SIM bắt buộc có extra.activationDate (Ngày kích hoạt)',
+    });
+    expect(
+      (await send({ activationDate: '15/10/2026' }).expect(400)).body,
+    ).toMatchObject({
+      message: expect.stringContaining('YYYY-MM-DD') as string,
+    });
+    expect(
+      (await send({ activationDate: '2026-10-15', passport: 'X' }).expect(400))
+        .body,
+    ).toMatchObject({
+      message: expect.stringContaining('extra.passport') as string,
+    });
+
+    const created = await send({
+      activationDate: '2026-10-15',
+      iccids: ['8988001'],
+    }).expect(202);
+    const order = created.body as OrderBody & { extra: unknown };
+    expect(order.extra).toEqual({
+      activationDate: '2026-10-15',
+      iccids: ['8988001'],
+    });
+
+    const deadline = Date.now() + 15_000;
+    let sent: Record<string, unknown> | undefined;
+    while (!sent && Date.now() < deadline) {
+      const events = (
+        await http.get(`/admin/orders/${order.transCode}/events`).set(admin())
+      ).body as {
+        source: string;
+        type: string;
+        request: { body?: Record<string, unknown> } | null;
+      }[];
+      sent = events.find((e) => e.source === 'SUBMIT' && e.type === 'RESULT')
+        ?.request?.body;
+      if (!sent) await new Promise((r) => setTimeout(r, 200));
+    }
+    expect(sent).toMatchObject({
+      requestId: order.transCode,
+      activationDate: '2026-10-15',
+      iccids: ['8988001'],
+    });
+  });
 });

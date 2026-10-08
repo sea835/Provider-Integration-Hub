@@ -15,6 +15,7 @@ import { baseSchema } from '@common/base/base.schema';
 import { merchants } from '@modules/merchant/infrastructure/merchant.schema';
 import { suppliers } from '@modules/supplier/infrastructure/supplier.schema';
 import type { OrderDelivery } from '@modules/provider-adapter/domain/supplier-result';
+import type { OrderExtra } from '@modules/provider-adapter/domain/order-fields';
 
 export const transactions = pgTable(
   'transactions',
@@ -36,6 +37,7 @@ export const transactions = pgTable(
     configVersion: integer('config_version').notNull(),
     phone: varchar('phone', { length: 15 }),
     serial: varchar('serial', { length: 30 }),
+    extra: jsonb('extra').$type<OrderExtra>().notNull().default({}),
     supplierTransId: varchar('supplier_trans_id', { length: 100 }),
     submitCount: integer('submit_count').notNull().default(0),
     checkCount: integer('check_count').notNull().default(0),

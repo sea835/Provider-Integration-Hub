@@ -4,7 +4,7 @@ export type HttpMethod = (typeof HTTP_METHODS)[number];
 export const BODY_TYPES = ["NONE", "JSON", "FORM"] as const;
 export type BodyType = (typeof BODY_TYPES)[number];
 
-export const VALUE_TYPES = ["string", "number", "boolean"] as const;
+export const VALUE_TYPES = ["string", "number", "boolean", "array"] as const;
 export type ValueType = (typeof VALUE_TYPES)[number];
 
 export const AUTH_TYPES = ["NONE", "HEADER", "BEARER", "BASIC", "QUERY"] as const;
@@ -97,8 +97,9 @@ export interface TokenSpec {
   refreshOn: Condition[];
 }
 
-export interface SignatureSpec {
-  enabled: boolean;
+export interface SignatureRule {
+  label: string;
+  methods: HttpMethod[];
   algorithm: SignAlgorithm;
   key: string;
   input: SignInput;
@@ -108,6 +109,13 @@ export interface SignatureSpec {
   name: string;
   apply: Record<CallKind, boolean>;
 }
+
+export interface SignatureSpec {
+  enabled: boolean;
+  rules: SignatureRule[];
+}
+
+export const MAX_SIGNATURE_RULES = 10;
 
 export interface PackagesSpec {
   enabled: boolean;
@@ -150,6 +158,7 @@ export interface OrdersSpec {
 export interface IntegrationSpec {
   actions: string[];
   fields: Record<string, ActionFieldRules>;
+  extraFields: ExtraField[];
   auth: { type: AuthType; name: string; value: string; username: string; password: string };
   token: TokenSpec;
   signature: SignatureSpec;
@@ -194,3 +203,16 @@ export interface IntegrationParams {
 }
 
 export type PathMode = "response" | "body" | "list" | "order" | "callback";
+
+export const EXTRA_FIELD_TYPES = ["TEXT", "NUMBER", "DATE", "TEXT_LIST"] as const;
+export type ExtraFieldType = (typeof EXTRA_FIELD_TYPES)[number];
+export const MAX_EXTRA_FIELDS = 20;
+
+export interface ExtraField {
+  key: string;
+  label: string;
+  type: ExtraFieldType;
+  required: boolean;
+  actions: string[];
+  description: string;
+}

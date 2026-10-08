@@ -380,9 +380,18 @@ export function PreviewPanel({
                 <Block title="Header" value={output.request.headers} />
                 {output.request.body ? <Block title="Body" value={output.request.body} /> : null}
                 {output.request.signature ? (
-                  <p className="text-[12px] leading-snug text-muted-foreground">
-                    Chữ ký ở đây tính bằng khoá đã che nên khác chữ ký thật; khi chạy, Hub ký bằng khoá thật.
-                  </p>
+                  <>
+                    <Block
+                      title={`Chuỗi đem ký${output.request.signatureRule ? ` · quy tắc "${output.request.signatureRule}"` : ""} (đối chiếu với tài liệu nhà cung cấp)`}
+                      value={
+                        output.request.signedPayload === "" ? "(chuỗi rỗng)" : (output.request.signedPayload ?? "")
+                      }
+                    />
+                    <p className="text-[12px] leading-snug text-muted-foreground">
+                      Chữ ký ở đây tính bằng khoá đã che nên khác chữ ký thật; khi chạy, Hub ký bằng khoá thật. Chuỗi
+                      đem ký thì giống hệt lúc chạy thật.
+                    </p>
+                  </>
                 ) : null}
               </div>
             ) : null}

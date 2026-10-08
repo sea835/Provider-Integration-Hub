@@ -168,6 +168,7 @@ describe('Processors', () => {
           packageCode: 'plan',
           phone: null,
           serial: '8984',
+          extra: {},
         },
       );
       expect(adapter.submit).not.toHaveBeenCalled();

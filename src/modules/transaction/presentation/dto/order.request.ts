@@ -60,6 +60,16 @@ export class CreateOrderRequest {
 
   @ApiPropertyOptional({
     type: Object,
+    example: { activationDate: '2026-10-15', iccids: ['8988...'] },
+    description:
+      'Trường thêm nhà cung cấp cần (vd ngày kích hoạt eSIM). Tên và kiểu theo khai báo của từng NCC; gửi trường lạ hoặc sai kiểu bị 400',
+  })
+  @IsOptional()
+  @IsObject()
+  extra?: Record<string, unknown>;
+
+  @ApiPropertyOptional({
+    type: Object,
     description: 'Tối đa 2KB, không gửi sang NCC',
   })
   @IsOptional()

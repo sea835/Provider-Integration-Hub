@@ -1,5 +1,9 @@
 import { OrderActionType } from '@modules/provider-adapter/domain/order-action';
-import { OrderFieldRules } from '@modules/provider-adapter/domain/order-fields';
+import {
+  OrderExtra,
+  OrderExtraField,
+  OrderFieldRules,
+} from '@modules/provider-adapter/domain/order-fields';
 import {
   OutcomeType,
   SupplierResult,
@@ -23,6 +27,8 @@ export interface OrderCommand {
   packageCode: string;
   phone: string | null;
   serial: string | null;
+  /** Trường thêm Store gửi theo khai báo của NCC (đã kiểm tra kiểu). */
+  extra?: OrderExtra;
   /** Lần gửi thứ mấy của đơn (1 = lần đầu). */
   attempt?: number;
 }
@@ -56,6 +62,7 @@ export interface PackageCheckCommand {
   packageCode: string;
   phone: string | null;
   serial: string | null;
+  extra?: OrderExtra;
 }
 
 /** eligible = null: chưa rõ (lỗi mạng, NCC không hỗ trợ, phản hồi không đọc được). */
@@ -189,6 +196,8 @@ export interface ProviderAdapter {
   supportedActions?(ctx: SupplierContext): OrderActionType[];
   /** Store bắt buộc gửi SĐT / serial cho thao tác nào; không có thì dùng mặc định của Hub. */
   fieldRules?(ctx: SupplierContext): OrderFieldRules;
+  /** Trường thêm NCC cần (Store gửi trong `extra`); không có thì Store không được gửi `extra`. */
+  extraFields?(ctx: SupplierContext): OrderExtraField[];
   defaultParams?(): Record<string, unknown>;
 
   /** API không bắt buộc NCC có; không khai báo nghĩa là không có API nào trong số đó. */

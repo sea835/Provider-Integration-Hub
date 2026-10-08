@@ -38,6 +38,7 @@ function makeOrder(
     configVersion: 3,
     phone: null,
     serial: '8984012601500769003',
+    extra: {},
     supplierTransId: null,
     submitCount: 1,
     checkCount: 0,

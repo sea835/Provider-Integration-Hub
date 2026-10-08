@@ -81,19 +81,25 @@
     },
     "signature": {
       "enabled": true,
-      "algorithm": "HMAC_SHA256",
-      "key": "{{secrets.secretKey}}",
-      "input": "BODY",
-      "template": "",
-      "encoding": "HEX",
-      "target": "BODY_FIELD",
-      "name": "signature",
-      "apply": {
-        "login": false,
-        "submit": true,
-        "query": false,
-        "test": false
-      }
+      "rules": [
+        {
+          "label": "Chữ ký",
+          "methods": [],
+          "algorithm": "HMAC_SHA256",
+          "key": "{{secrets.secretKey}}",
+          "input": "BODY",
+          "template": "",
+          "encoding": "HEX",
+          "target": "BODY_FIELD",
+          "name": "signature",
+          "apply": {
+            "login": false,
+            "submit": true,
+            "query": false,
+            "test": false
+          }
+        }
+      ]
     },
     "headers": [
       {

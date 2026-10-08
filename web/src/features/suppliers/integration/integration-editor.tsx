@@ -192,6 +192,7 @@ export function IntegrationEditor({ supplier }: { supplier: Supplier }) {
     vars: current.vars ? Object.keys(current.vars) : [],
     secrets: current.secretKeys,
     token: spec.token.enabled,
+    extra: spec.extraFields.map((field) => ({ key: field.key, label: field.label })),
   };
   const setSpec = (path: Path, value: unknown) => setDraft((state) => setIn(state, ["spec", ...path], value));
   const ordersList: OrderContainer = {

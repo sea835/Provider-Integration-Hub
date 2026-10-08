@@ -7,7 +7,9 @@ import type {
   SupplierOrderSummary,
   SupplierPackage,
 } from '@modules/provider-adapter/domain/provider-adapter.port';
+import type { OrderExtraField } from '@modules/provider-adapter/domain/order-fields';
 import { HttpResult } from '@modules/provider-adapter/infrastructure/http/http-json.client';
+import type { IntegrationSpec } from '@modules/provider-adapter/infrastructure/adapters/http-config/http-config.types';
 import {
   parseParams,
   readinessIssues,
@@ -71,6 +73,8 @@ export interface PreviewOutput {
     headers: Record<string, string>;
     body: unknown;
     signature: string | null;
+    signedPayload: string | null;
+    signatureRule: string | null;
   } | null;
   result: PreviewResult | null;
   explain: string | null;
@@ -103,6 +107,34 @@ export function toPreviewResult(result: SupplierResult): PreviewResult {
  * "Phân loại thử" cho giao diện: dựng request mẫu và chạy đúng engine với phản hồi mẫu,
  * không gọi nhà cung cấp. Bí mật được thay bằng ***tên***.
  */
+const SAMPLE_EXTRA: Record<
+  OrderExtraField['type'],
+  (today: string) => unknown
+> = {
+  TEXT: () => 'gia_tri_mau',
+  NUMBER: () => 1,
+  DATE: (today) => today,
+  TEXT_LIST: () => ['mau_1'],
+};
+
+/** Giá trị mẫu cho trường thêm: lấy từ đơn mẫu nếu có, không thì sinh theo kiểu. */
+function sampleExtra(
+  spec: IntegrationSpec,
+  given: unknown,
+): Record<string, unknown> {
+  const provided =
+    given && typeof given === 'object' && !Array.isArray(given)
+      ? (given as Record<string, unknown>)
+      : {};
+  const today = new Date(Date.now() + 7 * 3_600_000).toISOString().slice(0, 10);
+  return Object.fromEntries(
+    spec.extraFields.map((field) => [
+      field.key,
+      provided[field.key] ?? SAMPLE_EXTRA[field.type](today),
+    ]),
+  );
+}
+
 @Injectable()
 export class IntegrationPreviewService {
   preview(input: PreviewInput): PreviewOutput {
@@ -130,6 +162,7 @@ export class IntegrationPreviewService {
       phone: text(input.order?.phone, '0912345678'),
       serial: text(input.order?.serial, null),
       supplierTransId: text(input.order?.supplierTransId, null),
+      extra: sampleExtra(spec, input.order?.extra),
     };
 
     let request: PreviewOutput['request'] = null;
@@ -179,6 +212,8 @@ export class IntegrationPreviewService {
           headers: built.headers,
           body: built.bodyForTrace ?? null,
           signature: built.signature ?? null,
+          signedPayload: built.signedPayload ?? null,
+          signatureRule: built.signatureRule ?? null,
         };
       } catch {
         return {

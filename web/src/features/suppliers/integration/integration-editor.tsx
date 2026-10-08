@@ -193,6 +193,8 @@ export function IntegrationEditor({ supplier }: { supplier: Supplier }) {
     secrets: current.secretKeys,
     token: spec.token.enabled,
     extra: spec.extraFields.map((field) => ({ key: field.key, label: field.label })),
+    hosts: spec.hosts,
+    baseUrl: supplier.baseUrl,
   };
   const setSpec = (path: Path, value: unknown) => setDraft((state) => setIn(state, ["spec", ...path], value));
   const ordersList: OrderContainer = {
@@ -273,7 +275,11 @@ export function IntegrationEditor({ supplier }: { supplier: Supplier }) {
       ? Object.fromEntries(secretRows.filter((row) => row.name && row.value).map((row) => [row.name, row.value]))
       : undefined;
 
-  const loadSample = (kind: "PACKAGES" | "CHECK" | "QUERY" | "ORDERS" | "TEST", httpStatus: number, body: unknown) => {
+  const loadSample = (
+    kind: "PACKAGES" | "CHECK" | "BALANCE" | "QUERY" | "ORDERS" | "TEST",
+    httpStatus: number,
+    body: unknown,
+  ) => {
     setSamples((state) => ({
       ...state,
       [kind]: {

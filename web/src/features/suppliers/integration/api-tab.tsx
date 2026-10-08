@@ -36,7 +36,11 @@ export function ApiTab({
   kit: EditorKit;
   buildParams: () => IntegrationParams;
   draftSecrets: () => Record<string, string> | undefined;
-  onUseAsSample: (kind: "PACKAGES" | "CHECK" | "QUERY" | "ORDERS" | "TEST", httpStatus: number, body: unknown) => void;
+  onUseAsSample: (
+    kind: "PACKAGES" | "CHECK" | "BALANCE" | "QUERY" | "ORDERS" | "TEST",
+    httpStatus: number,
+    body: unknown,
+  ) => void;
 }) {
   const { spec, supplier } = kit;
   const liveProps = {
@@ -44,6 +48,7 @@ export function ApiTab({
     supplierCode: supplier.code,
     baseUrl: supplier.baseUrl,
     actions: spec.actions,
+    extraFields: spec.extraFields,
     buildParams,
     draftSecrets,
   };
@@ -132,6 +137,55 @@ export function ApiTab({
               />
             </FieldRow>
             <JumpLink onClick={() => kit.reveal("checkResult")}>Cách đọc kết quả kiểm tra</JumpLink>
+          </>
+        ) : null}
+      </Section>
+
+      <Section
+        {...kit.section("balanceApi")}
+        state={spec.balance.enabled}
+        summary={
+          spec.balance.enabled
+            ? `${requestSummary(spec.balance.request)}${spec.balance.beforeSubmit ? " · kiểm tra trước mỗi đơn" : ""}`
+            : "Không dùng"
+        }
+        title="Số dư tại nhà cung cấp"
+        description="Số dư tài khoản đại lý của mình tại nhà cung cấp (vd MoMo B2B). Admin xem ở tab Tổng quan; có thể để Hub kiểm tra trước lần gửi đầu của mỗi đơn."
+      >
+        <FieldRow label="Nhà cung cấp có API này">
+          <Switch
+            checked={spec.balance.enabled}
+            onCheckedChange={(enabled) => kit.set(["balance", "enabled"], enabled)}
+            aria-label="Nhà cung cấp có API số dư"
+          />
+        </FieldRow>
+        {spec.balance.enabled ? (
+          <>
+            <FieldRow
+              label="Kiểm tra trước mỗi đơn"
+              hint="Trước lần gửi đầu, Hub hỏi số dư. Dưới mức tối thiểu → đơn thất bại ngay (INSUFFICIENT_BALANCE), không gửi. Lỗi hoặc không đọc được → vẫn gửi đơn."
+            >
+              <Switch
+                checked={spec.balance.beforeSubmit}
+                onCheckedChange={(beforeSubmit) => kit.set(["balance", "beforeSubmit"], beforeSubmit)}
+                aria-label="Kiểm tra số dư trước mỗi đơn"
+              />
+            </FieldRow>
+            <RequestEditor
+              value={spec.balance.request}
+              onChange={(request) => kit.set(["balance", "request"], request)}
+              variables={kit.variables}
+              pathPlaceholder="/telco/v1/partner/balance"
+            />
+            <FieldRow label="Gọi thử" hint="Hỏi thật số dư; không tạo đơn.">
+              <LiveCall
+                {...liveProps}
+                kind="BALANCE"
+                request={spec.balance.request}
+                onUseAsSample={(status, body) => onUseAsSample("BALANCE", status, body)}
+              />
+            </FieldRow>
+            <JumpLink onClick={() => kit.reveal("balanceResult")}>Cách đọc số dư</JumpLink>
           </>
         ) : null}
       </Section>

@@ -39,6 +39,7 @@ import { CopyButton } from "./copy-button";
 import { useAdapterTypes, useSupplier, useTestConnection, useUpdateSupplier } from "./hooks";
 import { IntegrationEditor } from "./integration/integration-editor";
 import { toIntegrationParams } from "./integration/state";
+import { SupplierBalanceCard } from "./supplier-balance-card";
 import { SupplierForm, toUpdateInput } from "./supplier-form";
 import { SupplierNccOrders } from "./supplier-ncc-orders";
 import { SupplierOrders } from "./supplier-orders";
@@ -432,6 +433,9 @@ export function SupplierDetailView({ id }: { id: string }) {
             />
             <CallbackCard supplier={supplier} adapter={adapter} />
           </div>
+          {adapter?.editor === "HTTP_CONFIG" && toIntegrationParams(supplier.params).spec.balance.enabled ? (
+            <SupplierBalanceCard key={supplier.updatedAt} supplierId={supplier.id} />
+          ) : null}
           <StoreExampleCard supplier={supplier} adapter={adapter} />
         </TabsContent>
 

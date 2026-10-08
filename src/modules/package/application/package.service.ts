@@ -9,6 +9,7 @@ import { SupplierConfigService } from '@modules/supplier/application/supplier-co
 import { SupplierConfig } from '@modules/supplier/domain/supplier-config';
 import { SupplierStatus } from '@modules/supplier/domain/supplier-status';
 import { resolveOrderFields } from '@modules/transaction/domain/order-fields.policy';
+import { resolveOrderExtra } from '@modules/transaction/domain/order-extra.policy';
 import { normalizeVnPhone } from '@modules/transaction/domain/msisdn';
 import { InvalidOrderRequestError } from '@modules/transaction/domain/transaction.errors';
 import {
@@ -25,6 +26,7 @@ export interface PackageListInput {
   action?: OrderActionType;
   phone?: string;
   serial?: string;
+  extra?: Record<string, unknown>;
 }
 
 export interface PackageListOutput {
@@ -38,6 +40,7 @@ export interface PackageCheckInput {
   packageCode: string;
   phone?: string | null;
   serial?: string | null;
+  extra?: Record<string, unknown>;
 }
 
 export interface PackageCheckOutput {
@@ -81,12 +84,23 @@ export class PackageService {
     }
     const phone = this.phoneOf(input.phone);
     const serial = input.serial?.trim() || null;
+    const extra = resolveOrderExtra(
+      input.action ?? null,
+      input.extra,
+      adapter.extraFields?.(ctx) ?? [],
+      { enforceRequired: false },
+    );
     const key = [
       supplier.id,
       supplier.version,
       input.action ?? '',
       phone ?? '',
       serial ?? '',
+      JSON.stringify(
+        Object.keys(extra)
+          .sort()
+          .map((name) => [name, extra[name]]),
+      ),
     ].join(':');
     const cached = this.cache.get(key);
     if (cached && cached.expiresAt > Date.now()) return cached.value;
@@ -95,6 +109,7 @@ export class PackageService {
       action: input.action ?? null,
       phone,
       serial,
+      extra,
     });
     if (!result.ok) {
       if (result.unsupported) {
@@ -123,11 +138,18 @@ export class PackageService {
       (adapter.fieldRules?.(ctx) ?? defaultFieldRules())[input.action],
     );
     const packageCode = input.packageCode.trim();
+    const extra = resolveOrderExtra(
+      input.action,
+      input.extra,
+      adapter.extraFields?.(ctx) ?? [],
+      { enforceRequired: false },
+    );
     const result = await adapter.checkPackage(ctx, {
       action: input.action,
       packageCode,
       phone: fields.phone,
       serial: fields.serial,
+      extra,
     });
     if (result.unsupported) {
       throw new FeatureNotSupportedError(supplier.code, 'kiểm tra gói');

@@ -130,6 +130,7 @@ describe('Chữ ký trong Tự cấu hình', () => {
           login: false,
           packages: false,
           check: false,
+          balance: false,
           submit: false,
           query: true,
           orders: false,

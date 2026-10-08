@@ -32,6 +32,7 @@ import {
   type RequestSpec,
   type Rule,
   type StatusMapping,
+  type HostSpec,
 } from "./types";
 
 export const OPERATOR_LABELS: Record<Condition["operator"], string> = {
@@ -71,6 +72,8 @@ export interface VariableOptions {
   secrets: string[];
   token?: boolean;
   extra?: Array<{ key: string; label: string }>;
+  hosts?: HostSpec[];
+  baseUrl?: string;
 }
 
 export type VariableList = Array<[string, string]>;
@@ -573,6 +576,8 @@ function BodyFieldsEditor({
   );
 }
 
+const BASE_HOST = "__base__";
+
 export function RequestEditor({
   value,
   onChange,
@@ -587,11 +592,41 @@ export function RequestEditor({
   extra?: ExtraVariables;
 }) {
   const set = (patch: Partial<RequestSpec>) => onChange({ ...value, ...patch });
+  const hosts = variables.hosts ?? [];
+  const chosen = hosts.find((host) => host.key === value.host);
+  const base = value.host ? (chosen?.url ?? "") : (variables.baseUrl ?? "");
+  const absolute = /^https?:\/\//i.test(value.path);
+  const fullUrl = absolute
+    ? value.path
+    : `${base.replace(/\/+$/, "")}${value.path && !value.path.startsWith("/") ? "/" : ""}${value.path}`;
   return (
     <div className="grid grid-cols-1 gap-4">
+      {hosts.length > 0 || value.host ? (
+        <FieldRow label="Gọi tới" hint="Địa chỉ gốc khai báo ở tab Kết nối chung, mục Địa chỉ gốc.">
+          <Select
+            value={value.host || BASE_HOST}
+            onValueChange={(host) => set({ host: host === BASE_HOST ? "" : host })}
+          >
+            <SelectTrigger className="h-8 text-[13px] sm:w-96" aria-label="Địa chỉ gốc của API này">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={BASE_HOST}>Base URL của nhà cung cấp</SelectItem>
+              {hosts
+                .filter((host) => host.key)
+                .map((host) => (
+                  <SelectItem key={host.key} value={host.key}>
+                    {host.label || host.key}
+                  </SelectItem>
+                ))}
+              {value.host && !chosen ? <SelectItem value={value.host}>{value.host} (đã xoá)</SelectItem> : null}
+            </SelectContent>
+          </Select>
+        </FieldRow>
+      ) : null}
       <FieldRow
         label="Phương thức và đường dẫn"
-        hint="Đường dẫn nối sau Địa chỉ API. Ghi đầy đủ https://... nếu khác máy chủ."
+        hint="Đường dẫn nối sau địa chỉ gốc. Ghi đầy đủ https://... nếu khác máy chủ."
       >
         <div className="flex gap-2">
           <SmallSelect
@@ -612,6 +647,15 @@ export function RequestEditor({
             className="flex-1"
           />
         </div>
+        {value.host && !chosen ? (
+          <p className="mt-1.5 text-[12px] text-danger">
+            Địa chỉ gốc &quot;{value.host}&quot; không còn, chọn lại ở ô Gọi tới.
+          </p>
+        ) : base || absolute ? (
+          <p className="mt-1.5 text-[12px] text-muted-foreground">
+            Gọi tới <span className="font-mono break-all text-foreground">{fullUrl || base}</span>
+          </p>
+        ) : null}
       </FieldRow>
       <FieldRow label="Tham số trên URL" hint="Phần ?a=1&b=2 sau đường dẫn.">
         <KeyValueEditor

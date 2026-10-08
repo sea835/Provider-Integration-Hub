@@ -69,6 +69,7 @@ export const CALL_KINDS = [
   'login',
   'packages',
   'check',
+  'balance',
   'submit',
   'query',
   'orders',
@@ -93,7 +94,19 @@ export interface BodyField {
   omitIfEmpty: boolean;
 }
 
+/** Địa chỉ gốc có tên (vd máy chủ thanh toán khác máy chủ tra cứu); API chọn theo `key`. */
+export interface HostSpec {
+  key: string;
+  label: string;
+  url: string;
+}
+
+export const HOST_KEY = /^[A-Za-z][A-Za-z0-9_]{0,29}$/;
+export const MAX_HOSTS = 10;
+
 export interface RequestSpec {
+  /** Rỗng = Base URL của NCC; có giá trị = `key` của một địa chỉ trong `spec.hosts`. */
+  host?: string;
   method: HttpMethod;
   path: string;
   query: KeyValue[];
@@ -187,15 +200,48 @@ export interface PackagesSpec {
  * API 2: kiểm tra gói có đăng ký được không. Khớp `eligible` → được; khớp `ineligible` → không được;
  * còn lại (kể cả lỗi mạng) là chưa rõ và Hub vẫn gửi đơn.
  */
+/**
+ * DIRECT: phản hồi nói thẳng đăng ký được hay không (theo điều kiện).
+ * LIST: phản hồi là danh sách gói thuê bao đăng ký được; có gói của đơn trong danh sách là được.
+ */
+export const CHECK_MODES = ['DIRECT', 'LIST'] as const;
+export type CheckMode = (typeof CHECK_MODES)[number];
+
 export interface CheckSpec {
   enabled: boolean;
   beforeSubmit: boolean;
+  mode: CheckMode;
   request: RequestSpec;
   eligible: Condition[];
   ineligible: Condition[];
+  /** LIST: lời gọi hợp lệ khi; không khớp thì chưa rõ (Hub vẫn gửi đơn). */
+  success: Condition[];
+  /** LIST: vị trí danh sách; trống thì lấy theo ô matchField dạng `data.items[*].code`. */
+  listPath: string;
+  /** LIST: trường trong mỗi phần tử để so (mã hoặc tên gói). */
+  matchField: string;
+  /** LIST: giá trị của đơn đem dò, mặc định `{{order.packageCode}}`. */
+  matchValue: string;
+  ignoreCase: boolean;
   reasonCode: string;
   reasonMessage: string;
   errorCodePrefix: string;
+}
+
+/**
+ * Số dư tài khoản đại lý tại NCC (vd MoMo B2B). `beforeSubmit`: kiểm tra trước lần gửi đầu,
+ * dưới mức tối thiểu thì đơn thất bại ngay, không gửi; API số dư lỗi thì vẫn gửi.
+ */
+export interface BalanceSpec {
+  enabled: boolean;
+  beforeSubmit: boolean;
+  request: RequestSpec;
+  success: Condition[];
+  available: string;
+  pending: string;
+  currency: string;
+  /** Mẫu ra số, vd `100000`, `{{vars.minBalance}}`, `{{order.extra.amount}}`. Trống = cần lớn hơn 0. */
+  minimum: string;
 }
 
 /** API 5: danh sách đơn phía NCC. Dùng để tra cứu dự phòng và để admin xem. */
@@ -274,6 +320,7 @@ export const defaultSignatureRule = (): SignatureRule => ({
     login: false,
     packages: false,
     check: false,
+    balance: false,
     submit: true,
     query: false,
     orders: false,
@@ -287,12 +334,14 @@ export interface IntegrationSpec {
   fields: OrderFieldRules;
   /** Trường thêm Store gửi trong `extra` (vd activationDate), dùng qua {{order.extra.<key>}}. */
   extraFields: OrderExtraField[];
+  hosts: HostSpec[];
   auth: AuthSpec;
   token: TokenSpec;
   signature: SignatureSpec;
   headers: KeyValue[];
   packages: PackagesSpec;
   check: CheckSpec;
+  balance: BalanceSpec;
   submit: SubmitSpec;
   query: QuerySpec;
   orders: OrdersSpec;
@@ -308,6 +357,7 @@ export interface HttpConfigParams {
 }
 
 const emptyRequest = (method: HttpMethod = 'GET'): RequestSpec => ({
+  host: '',
   method,
   path: '',
   query: [],
@@ -326,6 +376,7 @@ export function defaultSpec(): IntegrationSpec {
     actions: [...ORDER_ACTION_VALUES].filter((a) => a !== 'CANCEL_PACKAGE'),
     fields: defaultFieldRules(),
     extraFields: [],
+    hosts: [],
     auth: { type: 'NONE', name: '', value: '', username: '', password: '' },
     token: {
       enabled: false,
@@ -351,12 +402,28 @@ export function defaultSpec(): IntegrationSpec {
     check: {
       enabled: false,
       beforeSubmit: false,
+      mode: 'DIRECT',
       request: emptyRequest('GET'),
       eligible: [],
       ineligible: [],
+      success: [http2xx()],
+      listPath: '',
+      matchField: '',
+      matchValue: '{{order.packageCode}}',
+      ignoreCase: false,
       reasonCode: '',
       reasonMessage: 'body.message',
       errorCodePrefix: '',
+    },
+    balance: {
+      enabled: false,
+      beforeSubmit: false,
+      request: emptyRequest('GET'),
+      success: [http2xx()],
+      available: '',
+      pending: '',
+      currency: '',
+      minimum: '',
     },
     submit: {
       resultMode: 'SYNC',

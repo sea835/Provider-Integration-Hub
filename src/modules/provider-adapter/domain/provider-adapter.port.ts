@@ -45,6 +45,8 @@ export interface PackageFilter {
   action: OrderActionType | null;
   phone: string | null;
   serial: string | null;
+  /** Trường thêm Store gửi kèm (vd provider), đã kiểm tra theo khai báo của NCC. */
+  extra?: OrderExtra;
 }
 
 /** `unsupported`: NCC trả lời rõ là không có API này. */
@@ -103,6 +105,20 @@ export interface AdapterFeatures {
   check: boolean;
   checkBeforeSubmit: boolean;
   orderList: boolean;
+  balance?: boolean;
+  balanceBeforeSubmit?: boolean;
+}
+
+/** Số dư tài khoản đại lý tại NCC. sufficient = null: chưa rõ (Hub vẫn gửi đơn). */
+export interface BalanceResult {
+  ok: boolean;
+  available: number | null;
+  pending: number | null;
+  currency: string | null;
+  minimum: number | null;
+  sufficient: boolean | null;
+  message: string;
+  trace: SupplierTrace;
 }
 
 export interface OrderRef {
@@ -196,6 +212,11 @@ export interface ProviderAdapter {
   supportedActions?(ctx: SupplierContext): OrderActionType[];
   /** Store bắt buộc gửi SĐT / serial cho thao tác nào; không có thì dùng mặc định của Hub. */
   fieldRules?(ctx: SupplierContext): OrderFieldRules;
+  /** Số dư đại lý tại NCC; đơn (nếu có) dùng cho mức tối thiểu theo đơn. */
+  checkBalance?(
+    ctx: SupplierContext,
+    order?: PackageCheckCommand | null,
+  ): Promise<BalanceResult>;
   /** Trường thêm NCC cần (Store gửi trong `extra`); không có thì Store không được gửi `extra`. */
   extraFields?(ctx: SupplierContext): OrderExtraField[];
   defaultParams?(): Record<string, unknown>;

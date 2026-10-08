@@ -186,6 +186,24 @@ export function computeSignature(
   return signature.encoding === 'HEX_UPPER' ? hex.toUpperCase() : hex;
 }
 
+export class UnknownHostError extends Error {
+  constructor(readonly key: string) {
+    super(`Chưa khai báo địa chỉ gốc "${key}"`);
+  }
+}
+
+/** Địa chỉ gốc của một request: Base URL của NCC, hoặc địa chỉ có tên request đã chọn. */
+export function requestBaseUrl(
+  spec: IntegrationSpec,
+  request: RequestSpec,
+  baseUrl: string,
+): string {
+  if (!request.host) return baseUrl;
+  const host = spec.hosts.find((item) => item.key === request.host);
+  if (!host?.url) throw new UnknownHostError(request.host);
+  return host.url;
+}
+
 export function buildRequest(
   spec: IntegrationSpec,
   request: RequestSpec,
@@ -194,10 +212,11 @@ export function buildRequest(
   kind: CallKind,
 ): BuiltRequest {
   const path = render(request.path, scope, encodeURIComponent);
+  const base = requestBaseUrl(spec, request, baseUrl);
   const url = ABSOLUTE_URL.test(path)
     ? new URL(path)
     : new URL(
-        `${baseUrl.replace(/\/+$/, '')}${path.startsWith('/') || !path ? path : `/${path}`}`,
+        `${base.replace(/\/+$/, '')}${path.startsWith('/') || !path ? path : `/${path}`}`,
       );
   for (const item of request.query) {
     const value = render(item.value, scope);
@@ -721,9 +740,173 @@ export interface CheckReading {
 }
 
 /** API 2: gói có đăng ký được không. Không chắc thì là null (Hub vẫn gửi đơn). */
+export interface BalanceReading {
+  ok: boolean;
+  available: number | null;
+  pending: number | null;
+  currency: string | null;
+  /** Mức tối thiểu để gửi đơn; null = chỉ cần lớn hơn 0. */
+  minimum: number | null;
+  /** null: chưa rõ (lỗi, không đọc được) → Hub vẫn gửi đơn. */
+  sufficient: boolean | null;
+  message: string;
+}
+
+function numberAt(scope: Scope, path: string): number | null {
+  if (!path) return null;
+  const value = evaluate(path, scope);
+  if (value === null || value === undefined || value === '') return null;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
+
+function money(value: number, currency: string | null): string {
+  return `${value.toLocaleString('vi-VN')}${currency ? ` ${currency}` : ''}`;
+}
+
+/** Số dư đại lý tại NCC và có đủ để gửi đơn không. */
+export function readBalance(
+  params: HttpConfigParams,
+  res: HttpResult,
+  order: OrderInput | null,
+): BalanceReading {
+  const empty = {
+    available: null,
+    pending: null,
+    currency: null,
+    minimum: null,
+    sufficient: null,
+  };
+  if (!res.ok) {
+    return {
+      ...empty,
+      ok: false,
+      message: `Không gọi được API số dư (${res.message}): chưa rõ, Hub vẫn gửi đơn`,
+    };
+  }
+  const { balance } = params.spec;
+  const scope = responseScope(res);
+  if (!allMatch(successConditions(balance.success), scope)) {
+    return {
+      ...empty,
+      ok: false,
+      message: `API số dư báo không thành công (${messageOf('body.message', scope, res.status)}): chưa rõ, Hub vẫn gửi đơn`,
+    };
+  }
+  const available = numberAt(scope, balance.available);
+  const currency =
+    (balance.currency && asString(evaluate(balance.currency, scope))) || null;
+  const pending = numberAt(scope, balance.pending);
+  const rendered = balance.minimum
+    ? render(balance.minimum, requestScope(params, {}, order)).trim()
+    : '';
+  const minimum =
+    rendered && Number.isFinite(Number(rendered)) ? Number(rendered) : null;
+  if (available === null) {
+    return {
+      ...empty,
+      ok: false,
+      currency,
+      message: `Không đọc được số dư ở ${balance.available || '(chưa chọn trường)'}: chưa rõ, Hub vẫn gửi đơn`,
+    };
+  }
+  const sufficient = minimum === null ? available > 0 : available >= minimum;
+  const need =
+    minimum === null ? 'lớn hơn 0' : `tối thiểu ${money(minimum, currency)}`;
+  return {
+    ok: true,
+    available,
+    pending,
+    currency,
+    minimum,
+    sufficient,
+    message: sufficient
+      ? `Số dư khả dụng ${money(available, currency)}, đủ (cần ${need})`
+      : `Số dư khả dụng ${money(available, currency)}, không đủ (cần ${need})`,
+  };
+}
+
+export function checkListPath(spec: IntegrationSpec): string {
+  return listPathOf(spec.check.listPath, [spec.check.matchField]);
+}
+
+/** Giá trị của đơn đem dò trong danh sách (chế độ LIST), mặc định mã gói. */
+export function checkTarget(
+  params: HttpConfigParams,
+  order: OrderInput | null,
+): string {
+  return render(
+    params.spec.check.matchValue || '{{order.packageCode}}',
+    requestScope(params, {}, order),
+  ).trim();
+}
+
+function normalized(value: string, ignoreCase: boolean): string {
+  const trimmed = value.trim();
+  return ignoreCase ? trimmed.toLocaleLowerCase('vi') : trimmed;
+}
+
+function readCheckList(
+  spec: IntegrationSpec,
+  res: HttpResult & { ok: true },
+  target: string,
+): CheckReading {
+  const { check } = spec;
+  const scope = responseScope(res);
+  if (!allMatch(successConditions(check.success), scope)) {
+    return {
+      eligible: null,
+      reason: null,
+      explain: `API kiểm tra báo không thành công (${messageOf(check.reasonMessage || 'body.message', scope, res.status)}): chưa rõ, Hub vẫn gửi đơn`,
+    };
+  }
+  const listPath = checkListPath(spec);
+  const items = listAt(scope.body, listPath);
+  if (!items) {
+    return {
+      eligible: null,
+      reason: null,
+      explain: `Không thấy danh sách ở ${listPath || '(cả phản hồi)'}: chưa rõ, Hub vẫn gửi đơn`,
+    };
+  }
+  const wanted = normalized(target, check.ignoreCase);
+  if (!wanted) {
+    return {
+      eligible: null,
+      reason: null,
+      explain:
+        'Đơn không có giá trị để dò (giá trị đem dò rỗng): chưa rõ, Hub vẫn gửi đơn',
+    };
+  }
+  const found = items.some(
+    (item) =>
+      normalized(
+        asString(evaluateItem(check.matchField, item)),
+        check.ignoreCase,
+      ) === wanted,
+  );
+  if (found) {
+    return {
+      eligible: true,
+      reason: null,
+      explain: `Có "${target}" trong danh sách ${items.length} gói đăng ký được`,
+    };
+  }
+  const errorCode = code('PACKAGE_NOT_ELIGIBLE');
+  return {
+    eligible: false,
+    reason: {
+      code: errorCode,
+      message: `Gói ${target} không có trong danh sách gói thuê bao đăng ký được`,
+    },
+    explain: `Không có "${target}" trong danh sách ${items.length} gói đăng ký được: đơn thất bại với mã ${errorCode}, không gửi đơn`,
+  };
+}
+
 export function readCheck(
   spec: IntegrationSpec,
   res: HttpResult,
+  target = '',
 ): CheckReading {
   if (!res.ok) {
     return {
@@ -732,6 +915,7 @@ export function readCheck(
       explain: `Không gọi được API kiểm tra (${res.message}): chưa rõ, Hub vẫn gửi đơn`,
     };
   }
+  if (spec.check.mode === 'LIST') return readCheckList(spec, res, target);
   const scope = responseScope(res);
   const { check } = spec;
   if (check.eligible.length > 0 && allMatch(check.eligible, scope)) {

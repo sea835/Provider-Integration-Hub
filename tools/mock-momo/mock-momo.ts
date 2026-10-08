@@ -37,6 +37,8 @@ export interface MockMomo {
   readonly requests: string[];
   readonly logins: number;
   expireTokens(): void;
+  /** Đặt số dư khả dụng của đại lý (để thử luồng không đủ số dư). */
+  setBalance(value: number): void;
   listen(port: number): Promise<number>;
   close(): Promise<void>;
 }
@@ -379,6 +381,9 @@ export function createMockMomo(options: MockMomoOptions): MockMomo {
       return logins;
     },
     expireTokens: () => tokens.forEach((_, token) => tokens.set(token, 0)),
+    setBalance: (value) => {
+      balance = value;
+    },
     listen: (port) =>
       new Promise((resolve) => {
         server.listen(port, '127.0.0.1', () =>

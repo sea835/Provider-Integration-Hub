@@ -9,6 +9,7 @@ import {
 } from '@modules/provider-adapter/domain/order-fields';
 import {
   AdapterFeatures,
+  BalanceResult,
   ConnectionTestResult,
   OrderCommand,
   OrderListResult,
@@ -64,6 +65,8 @@ import {
   requestScope,
   summarizeOrder,
   TokenReading,
+  checkTarget,
+  readBalance,
 } from '@modules/provider-adapter/infrastructure/adapters/http-config/http-config.engine';
 
 class NoConfig {}
@@ -145,7 +148,43 @@ export class HttpConfigAdapter implements ProviderAdapter {
         spec.check.beforeSubmit &&
         Boolean(spec.check.request.path),
       orderList: spec.orders.enabled && Boolean(spec.orders.request.path),
+      balance: spec.balance.enabled && Boolean(spec.balance.request.path),
+      balanceBeforeSubmit:
+        spec.balance.enabled &&
+        spec.balance.beforeSubmit &&
+        Boolean(spec.balance.request.path),
     };
+  }
+
+  async checkBalance(
+    ctx: SupplierContext,
+    cmd: PackageCheckCommand | null = null,
+  ): Promise<BalanceResult> {
+    const params = parseParams(ctx.params).params;
+    const order: OrderInput | null = cmd
+      ? { transCode: '', ...cmd, supplierTransId: null }
+      : null;
+    const outcome = await this.call(
+      ctx,
+      params,
+      'balance',
+      params.spec.balance.request,
+      order,
+      ctx.timeouts.queryMs,
+    );
+    if ('tokenError' in outcome) {
+      return {
+        ok: false,
+        available: null,
+        pending: null,
+        currency: null,
+        minimum: null,
+        sufficient: null,
+        message: `Chưa lấy được token: ${outcome.tokenError.message}`,
+        trace: { durationMs: 0 },
+      };
+    }
+    return { ...readBalance(params, outcome.res, order), trace: outcome.trace };
   }
 
   async listPackages(
@@ -160,6 +199,7 @@ export class HttpConfigAdapter implements ProviderAdapter {
       phone: filter.phone,
       serial: filter.serial,
       supplierTransId: null,
+      extra: filter.extra ?? {},
     };
     const outcome = await this.call(
       ctx,
@@ -203,7 +243,11 @@ export class HttpConfigAdapter implements ProviderAdapter {
     if ('tokenError' in outcome) {
       return { eligible: null, reason: null, trace: { durationMs: 0 } };
     }
-    const reading = readCheck(params.spec, outcome.res);
+    const reading = readCheck(
+      params.spec,
+      outcome.res,
+      checkTarget(params, order),
+    );
     return {
       eligible: reading.eligible,
       reason: reading.reason,
@@ -392,6 +436,17 @@ export class HttpConfigAdapter implements ProviderAdapter {
   private submitBlocker(params: HttpConfigParams): string | null {
     const { spec } = params;
     if (!spec.submit.request.path) return 'Chưa cấu hình gửi đơn';
+    const missingHost = [spec.submit.request, spec.token.request].find(
+      (request) =>
+        request.host &&
+        !spec.hosts.some((host) => host.key === request.host && host.url),
+    );
+    if (
+      missingHost &&
+      (missingHost !== spec.token.request || spec.token.enabled)
+    ) {
+      return `Chưa khai báo địa chỉ gốc "${missingHost.host}"`;
+    }
     const queryReady =
       spec.query.source === 'ORDERS'
         ? spec.orders.enabled && Boolean(spec.orders.request.path)

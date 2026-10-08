@@ -43,17 +43,21 @@ export interface OrderExtraField {
   required: boolean;
   /** Rỗng = áp cho mọi thao tác. */
   actions: OrderActionType[];
+  /** Giá trị cho phép (vd viettel, vinaphone); rỗng = không giới hạn. Chỉ áp cho Chữ và Danh sách chữ. */
+  options: string[];
   description: string;
 }
 
 export type OrderExtraValue = string | number | string[];
 export type OrderExtra = Record<string, OrderExtraValue>;
 
+/** action null (vd lấy danh sách gói không kèm thao tác): mọi trường đã khai báo. */
 export function extraFieldsFor(
   fields: OrderExtraField[],
-  action: OrderActionType,
+  action: OrderActionType | null,
 ): OrderExtraField[] {
   return fields.filter(
-    (field) => field.actions.length === 0 || field.actions.includes(action),
+    (field) =>
+      !action || field.actions.length === 0 || field.actions.includes(action),
   );
 }

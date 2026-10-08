@@ -80,7 +80,7 @@ export function fetchOrderEvents(transCode: string, signal?: AbortSignal): Promi
 export interface IntegrationPreviewInput {
   baseUrl: string;
   params: Record<string, unknown>;
-  kind: "LOGIN" | "PACKAGES" | "CHECK" | "SUBMIT" | "QUERY" | "ORDERS" | "TEST" | "CALLBACK";
+  kind: "LOGIN" | "PACKAGES" | "CHECK" | "BALANCE" | "SUBMIT" | "QUERY" | "ORDERS" | "TEST" | "CALLBACK";
   order?: Record<string, unknown>;
   response?: { httpStatus?: number; body?: unknown; headers?: Record<string, string> };
 }
@@ -129,10 +129,31 @@ export interface SupplierOrderSummary {
   createdAt: string | null;
 }
 
+export interface BalanceView {
+  available: number | null;
+  pending: number | null;
+  currency: string | null;
+  minimum: number | null;
+  sufficient: boolean | null;
+}
+
+export interface SupplierBalance extends BalanceView {
+  supported: boolean;
+  ok: boolean;
+  message: string;
+  durationMs: number;
+  checkedAt: string;
+}
+
+export function fetchSupplierBalance(supplierId: string, signal?: AbortSignal): Promise<SupplierBalance> {
+  return api.get<SupplierBalance>(`/admin/suppliers/${supplierId}/balance`, { signal });
+}
+
 export interface FlowOutputs {
   packages?: SupplierPackage[];
   check?: PackageCheck;
   orders?: SupplierOrderSummary[];
+  balance?: BalanceView;
 }
 
 export function previewIntegration(input: IntegrationPreviewInput): Promise<IntegrationPreviewOutput & FlowOutputs> {
@@ -153,7 +174,7 @@ export interface LiveExchange {
     | { ok: false; error: "TIMEOUT" | "NETWORK"; message: string; durationMs: number };
 }
 
-export type LiveCallKind = "PACKAGES" | "CHECK" | "QUERY" | "ORDERS" | "TEST";
+export type LiveCallKind = "PACKAGES" | "CHECK" | "BALANCE" | "QUERY" | "ORDERS" | "TEST";
 
 export interface IntegrationCallInput {
   params: Record<string, unknown>;
@@ -165,6 +186,7 @@ export interface IntegrationCallInput {
     packageCode?: string;
     phone?: string;
     serial?: string;
+    extra?: Record<string, unknown>;
   };
   range?: { from?: string; to?: string };
   secrets?: Record<string, string>;
@@ -179,6 +201,7 @@ export interface IntegrationCallOutput {
   packages?: SupplierPackage[];
   check?: PackageCheck;
   orders?: SupplierOrderSummary[];
+  balance?: BalanceView;
 }
 
 export interface SupplierOrdersOutput {

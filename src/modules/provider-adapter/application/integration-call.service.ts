@@ -28,6 +28,9 @@ import {
   readToken,
   requestScope,
   summarizeOrder,
+  UnknownHostError,
+  checkTarget,
+  readBalance,
 } from '@modules/provider-adapter/infrastructure/adapters/http-config/http-config.engine';
 import {
   CallKind,
@@ -42,6 +45,7 @@ import {
 export const LIVE_CALL_KINDS = [
   'PACKAGES',
   'CHECK',
+  'BALANCE',
   'QUERY',
   'ORDERS',
   'TEST',
@@ -104,6 +108,23 @@ export interface LiveCallOutput {
     reason: { code: string; message: string } | null;
   };
   orders?: SupplierOrderSummary[];
+  balance?: BalanceView;
+}
+
+export interface BalanceView {
+  available: number | null;
+  pending: number | null;
+  currency: string | null;
+  minimum: number | null;
+  sufficient: boolean | null;
+}
+
+export interface SupplierBalanceOutput extends BalanceView {
+  supported: boolean;
+  ok: boolean;
+  message: string;
+  durationMs: number;
+  checkedAt: string;
 }
 
 const DAY_MS = 86_400_000;
@@ -112,6 +133,7 @@ const MAX_RANGE_DAYS = 31;
 const KIND_LABELS: Record<LiveCallKind, string> = {
   PACKAGES: 'danh sách gói',
   CHECK: 'kiểm tra gói',
+  BALANCE: 'số dư',
   QUERY: 'tra cứu đơn',
   ORDERS: 'danh sách đơn',
   TEST: 'kiểm tra kết nối',
@@ -216,6 +238,50 @@ export class IntegrationCallService {
         };
   }
 
+  /** Admin xem số dư đại lý tại NCC bằng cấu hình đã lưu. */
+  async supplierBalance(
+    ctx: SupplierContext,
+    adapterType: string,
+  ): Promise<SupplierBalanceOutput> {
+    const adapter = this.adapters.get(adapterType);
+    const checkedAt = new Date().toISOString();
+    const empty = {
+      available: null,
+      pending: null,
+      currency: null,
+      minimum: null,
+      sufficient: null,
+    };
+    if (!adapter.checkBalance || !adapter.features?.(ctx).balance) {
+      return {
+        ...empty,
+        supported: false,
+        ok: false,
+        message: 'Nhà cung cấp này chưa khai báo API số dư',
+        durationMs: 0,
+        checkedAt,
+      };
+    }
+    const balance = await adapter.checkBalance(ctx, null);
+    this.logger.info('Xem số dư nhà cung cấp', {
+      supplier: ctx.supplierCode,
+      ok: balance.ok,
+      sufficient: balance.sufficient,
+    });
+    return {
+      supported: true,
+      ok: balance.ok,
+      message: balance.message,
+      available: balance.available,
+      pending: balance.pending,
+      currency: balance.currency,
+      minimum: balance.minimum,
+      sufficient: balance.sufficient,
+      durationMs: balance.trace.durationMs,
+      checkedAt,
+    };
+  }
+
   async call(input: LiveCallInput): Promise<LiveCallOutput> {
     const fail = (issues: string[]): LiveCallOutput => ({
       issues,
@@ -237,6 +303,7 @@ export class IntegrationCallService {
     const target: { request: RequestSpec; kind: CallKind } = {
       PACKAGES: { request: spec.packages.request, kind: 'packages' as const },
       CHECK: { request: spec.check.request, kind: 'check' as const },
+      BALANCE: { request: spec.balance.request, kind: 'balance' as const },
       QUERY: queryByOrders
         ? { request: spec.orders.request, kind: 'orders' as const }
         : { request: spec.query.request, kind: 'query' as const },
@@ -272,6 +339,12 @@ export class IntegrationCallService {
       phone: text(input.order?.phone),
       serial: text(input.order?.serial),
       supplierTransId: text(input.order?.supplierTransId),
+      extra:
+        input.order?.extra &&
+        typeof input.order.extra === 'object' &&
+        !Array.isArray(input.order.extra)
+          ? (input.order.extra as Record<string, unknown>)
+          : {},
     };
     if (input.kind === 'QUERY' && !order.transCode) {
       return fail(['Nhập mã đơn của Hub để tra cứu']);
@@ -374,7 +447,7 @@ export class IntegrationCallService {
         };
       }
       case 'CHECK': {
-        const reading = readCheck(spec, res);
+        const reading = readCheck(spec, res, checkTarget(params, order));
         return {
           ...base,
           result: result(
@@ -387,6 +460,28 @@ export class IntegrationCallService {
           ),
           explain: reading.explain,
           check: { eligible: reading.eligible, reason: reading.reason },
+        };
+      }
+      case 'BALANCE': {
+        const reading = readBalance(params, res, order);
+        return {
+          ...base,
+          result: result(
+            reading.sufficient === true
+              ? 'SUFFICIENT'
+              : reading.sufficient === false
+                ? 'INSUFFICIENT'
+                : 'UNKNOWN',
+            reading.ok ? null : reading.message,
+          ),
+          explain: reading.message,
+          balance: {
+            available: reading.available,
+            pending: reading.pending,
+            currency: reading.currency,
+            minimum: reading.minimum,
+            sufficient: reading.sufficient,
+          },
         };
       }
       case 'ORDERS': {
@@ -452,8 +547,13 @@ export class IntegrationCallService {
         requestScope(params, secrets, order, { token, range }),
         kind,
       );
-    } catch {
-      return { blocked: 'Địa chỉ API (Base URL) hoặc đường dẫn không hợp lệ' };
+    } catch (error) {
+      return {
+        blocked:
+          error instanceof UnknownHostError
+            ? error.message
+            : 'Địa chỉ API (Base URL) hoặc đường dẫn không hợp lệ',
+      };
     }
     const blocked = await blockedDestination(built.url);
     if (blocked) return { blocked };

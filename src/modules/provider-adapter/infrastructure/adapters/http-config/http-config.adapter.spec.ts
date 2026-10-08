@@ -91,6 +91,93 @@ describe('HttpConfigAdapter', () => {
     expect(sent).toHaveLength(0);
   });
 
+  it('API tạo đơn chọn địa chỉ gốc có tên → gửi tới địa chỉ đó; địa chỉ đã xoá thì không gửi', async () => {
+    const spec = anisim.spec as Record<string, Record<string, unknown>>;
+    const withHost = (hosts: unknown[]) => ({
+      ...anisim,
+      spec: {
+        ...spec,
+        hosts,
+        submit: {
+          ...spec.submit,
+          request: {
+            ...(spec.submit.request as Record<string, unknown>),
+            host: 'orders',
+          },
+        },
+      },
+    });
+
+    await adapter.submit(
+      ctx(
+        withHost([
+          { key: 'orders', label: '', url: 'https://orders.ani.test' },
+        ]),
+      ),
+      cmd,
+    );
+    expect(sent[0].url).toBe('https://orders.ani.test/api/v1/agency/orders');
+
+    sent = [];
+    const result = await adapter.submit(ctx(withHost([])), cmd);
+    expect(sent).toHaveLength(0);
+    expect(result).toMatchObject({
+      outcome: 'FAILED',
+      error: { message: 'Chưa khai báo địa chỉ gốc "orders"' },
+    });
+  });
+
+  it('kiểm tra gói kiểu dò danh sách: gọi theo SĐT, không có gói trong danh sách → không đăng ký được', async () => {
+    const params = {
+      spec: {
+        check: {
+          enabled: true,
+          mode: 'LIST',
+          request: { method: 'GET', path: '/eligible/{{order.phone}}' },
+          matchField: 'data[*].code',
+        },
+      },
+    };
+    const list = { code: 0, data: [{ code: 'SD70' }, { code: 'MXH120' }] };
+    const calls: HttpRequest[] = [];
+    const client = {
+      request: jest.fn((req: HttpRequest) => {
+        calls.push(req);
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          body: list,
+          rawText: JSON.stringify(list),
+          durationMs: 3,
+        } as HttpResult);
+      }),
+    } as unknown as HttpJsonClient;
+    const checker = new HttpConfigAdapter(
+      client,
+      new TokenManager(client, new MemoryTokenStore(), new PlainCipher()),
+    );
+
+    const ok = await checker.checkPackage(ctx(params), {
+      action: 'BUY_DATA',
+      packageCode: 'MXH120',
+      phone: '0912345678',
+      serial: null,
+    });
+    expect(calls[0].url).toBe('https://ap1.anipay.vn/eligible/0912345678');
+    expect(ok.eligible).toBe(true);
+
+    const blocked = await checker.checkPackage(ctx(params), {
+      action: 'BUY_DATA',
+      packageCode: 'BIG90',
+      phone: '0912345678',
+      serial: null,
+    });
+    expect(blocked).toMatchObject({
+      eligible: false,
+      reason: { code: 'PACKAGE_NOT_ELIGIBLE' },
+    });
+  });
+
   it('thao tác hỗ trợ lấy theo cấu hình của từng NCC', () => {
     expect(adapter.supportedActions(ctx(anisim))).toEqual(['ACTIVATE_SIM']);
   });

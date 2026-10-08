@@ -18,10 +18,10 @@ import { getErrorMessage } from "@/lib/api/errors";
 import { callIntegration, type IntegrationCallOutput, type LiveCallKind, type LiveExchange } from "../api";
 import { actionLabel, ORDER_STATUS_META } from "../constants";
 import { useOrders } from "../hooks";
-import { CheckVerdict, OrdersTable, PackagesTable } from "./flow-results";
+import { BalanceVerdict, CheckVerdict, OrdersTable, PackagesTable } from "./flow-results";
 import { JsonTree, type PickSource } from "./path-picker";
 import { OUTCOME_META } from "./preview-panel";
-import type { IntegrationParams, RequestSpec } from "./types";
+import type { IntegrationParams, RequestSpec, ExtraField } from "./types";
 
 function statusTone(status: number): BadgeTone {
   if (status >= 200 && status < 300) return "success";
@@ -92,7 +92,11 @@ function ResultView({
   onUseAsSample?: (httpStatus: number, body: unknown) => void;
 }) {
   const response = output.call?.response;
-  const flow = output.packages !== undefined || output.check !== undefined || output.orders !== undefined;
+  const flow =
+    output.packages !== undefined ||
+    output.check !== undefined ||
+    output.orders !== undefined ||
+    output.balance !== undefined;
   const outcome =
     output.result && !flow
       ? (OUTCOME_META[output.result.outcome] ?? { label: output.result.outcome, tone: "outline" as const })
@@ -134,6 +138,7 @@ function ResultView({
       ) : null}
       {output.packages ? <PackagesTable packages={output.packages} /> : null}
       {output.check ? <CheckVerdict check={output.check} /> : null}
+      {output.balance ? <BalanceVerdict balance={output.balance} /> : null}
       {output.orders ? <OrdersTable orders={output.orders} /> : null}
       {output.login ? (
         output.login.ok && output.call ? (
@@ -173,6 +178,8 @@ function localInput(ms: number): string {
   return date.toISOString().slice(0, 16);
 }
 
+const NO_EXTRA = "__none__";
+
 export function LiveCall({
   supplierId,
   supplierCode,
@@ -180,6 +187,7 @@ export function LiveCall({
   kind,
   request,
   actions,
+  extraFields = [],
   submitRequest,
   buildParams,
   draftSecrets,
@@ -191,6 +199,7 @@ export function LiveCall({
   kind: LiveCallKind;
   request: RequestSpec;
   actions: string[];
+  extraFields?: ExtraField[];
   submitRequest?: RequestSpec;
   buildParams: () => IntegrationParams;
   draftSecrets: () => Record<string, string> | undefined;
@@ -202,6 +211,29 @@ export function LiveCall({
   const [packageCode, setPackageCode] = useState("");
   const [phone, setPhone] = useState("");
   const [serial, setSerial] = useState("");
+  const [extra, setExtra] = useState<Record<string, string>>({});
+  const chosenForExtra = action === ANY_ACTION ? null : action;
+  const extraInputs = extraFields.filter(
+    (field) => field.key && (!chosenForExtra || field.actions.length === 0 || field.actions.includes(chosenForExtra)),
+  );
+  const extraValue = Object.fromEntries(
+    extraInputs
+      .map((field): [string, unknown] => {
+        const raw = (extra[field.key] ?? "").trim();
+        if (!raw) return [field.key, ""];
+        if (field.type === "NUMBER") return [field.key, Number(raw)];
+        if (field.type === "TEXT_LIST")
+          return [
+            field.key,
+            raw
+              .split(",")
+              .map((item) => item.trim())
+              .filter(Boolean),
+          ];
+        return [field.key, raw];
+      })
+      .filter(([, value]) => value !== ""),
+  );
   const [from, setFrom] = useState(() => localInput(Date.now() - 86_400_000));
   const [to, setTo] = useState(() => localInput(Date.now()));
   const recent = useOrders({ supplierCode, limit: 10 }, kind === "QUERY");
@@ -228,6 +260,7 @@ export function LiveCall({
                   packageCode: packageCode.trim() || undefined,
                   phone: phone.trim() || undefined,
                   serial: serial.trim() || undefined,
+                  extra: extraValue,
                 }
               : undefined,
         range: kind === "ORDERS" ? { from: new Date(from).toISOString(), to: new Date(to).toISOString() } : undefined,
@@ -291,6 +324,39 @@ export function LiveCall({
             spellCheck={false}
             className={inputClass}
           />
+          {extraInputs.map((field) =>
+            field.options.length > 0 && field.type === "TEXT" ? (
+              <Select
+                key={field.key}
+                value={extra[field.key] || NO_EXTRA}
+                onValueChange={(value) =>
+                  setExtra((current) => ({ ...current, [field.key]: value === NO_EXTRA ? "" : value }))
+                }
+              >
+                <SelectTrigger className="h-8 text-[13px]" aria-label={field.label || field.key}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_EXTRA}>{`${field.label || field.key}: không gửi`}</SelectItem>
+                  {field.options.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {`${field.label || field.key}: ${option}`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input
+                key={field.key}
+                value={extra[field.key] ?? ""}
+                onChange={(event) => setExtra((current) => ({ ...current, [field.key]: event.target.value }))}
+                placeholder={`${field.label || field.key} (extra.${field.key})${field.type === "TEXT_LIST" ? ", cách nhau dấu phẩy" : ""}`}
+                aria-label={field.label || field.key}
+                spellCheck={false}
+                className={inputClass}
+              />
+            ),
+          )}
         </div>
       ) : null}
       {kind === "ORDERS" ? (

@@ -459,6 +459,37 @@
       "transCode": "",
       "orderPath": "",
       "accept": []
+    },
+    "balance": {
+      "enabled": true,
+      "beforeSubmit": false,
+      "request": {
+        "method": "GET",
+        "path": "/telco/v1/partner/balance",
+        "bodyType": "NONE",
+        "body": [],
+        "query": []
+      },
+      "success": [
+        {
+          "path": "http.status",
+          "operator": "IN",
+          "values": [
+            "2xx"
+          ]
+        },
+        {
+          "path": "body.error",
+          "operator": "IN",
+          "values": [
+            "862000000"
+          ]
+        }
+      ],
+      "available": "body.data.availBalance",
+      "pending": "body.data.pendBalance",
+      "currency": "body.data.currency",
+      "minimum": ""
     }
   }
 }

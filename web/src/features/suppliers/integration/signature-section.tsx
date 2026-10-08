@@ -52,6 +52,7 @@ const CALL_KIND_LABELS: Record<CallKind, string> = {
   login: "Đăng nhập",
   packages: "Danh sách gói",
   check: "Kiểm tra gói",
+  balance: "Số dư",
   submit: "Đăng ký gói",
   query: "Kiểm tra trạng thái",
   orders: "Danh sách đơn",
@@ -273,6 +274,7 @@ export function SignatureSection({ kit }: { kit: EditorKit }) {
       (kind !== "login" || spec.token.enabled) &&
       (kind !== "packages" || spec.packages.enabled) &&
       (kind !== "check" || spec.check.enabled) &&
+      (kind !== "balance" || spec.balance.enabled) &&
       (kind !== "orders" || spec.orders.enabled),
   );
 

@@ -18,7 +18,7 @@ import {
   type IntegrationPreviewOutput,
 } from "../api";
 import { actionLabel } from "../constants";
-import { CheckVerdict, OrdersTable, PackagesTable } from "./flow-results";
+import { BalanceVerdict, CheckVerdict, OrdersTable, PackagesTable } from "./flow-results";
 import { JsonTree } from "./path-picker";
 import { toIntegrationParams } from "./state";
 import type { IntegrationParams } from "./types";
@@ -30,6 +30,7 @@ const KIND_LABELS: Record<Kind, string> = {
   LOGIN: "Phản hồi khi đăng nhập lấy token",
   PACKAGES: "1. Phản hồi danh sách gói",
   CHECK: "2. Phản hồi kiểm tra gói",
+  BALANCE: "Phản hồi số dư",
   SUBMIT: "3. Phản hồi khi đăng ký gói",
   QUERY: "4. Phản hồi kiểm tra trạng thái",
   ORDERS: "5. Phản hồi danh sách đơn",
@@ -47,6 +48,8 @@ export const OUTCOME_META: Record<string, { label: string; tone: BadgeTone }> = 
   FAIL: { label: "Không kết nối được", tone: "danger" },
   ELIGIBLE: { label: "Đăng ký được", tone: "success" },
   INELIGIBLE: { label: "Không đăng ký được", tone: "danger" },
+  SUFFICIENT: { label: "Đủ số dư", tone: "success" },
+  INSUFFICIENT: { label: "Không đủ số dư", tone: "danger" },
 };
 
 const LOGIN_OUTCOME_META: Record<string, { label: string; tone: BadgeTone }> = {
@@ -58,6 +61,7 @@ const PLACEHOLDERS: Record<Kind, string> = {
   LOGIN: '{"error": 0, "accessToken": "eyJhbGciOi..."}',
   PACKAGES: '{"code": 0, "data": {"items": [{"id": "...", "name": "...", "price": 50000}]}}',
   CHECK: '{"code": 0, "data": {"eligible": false, "reason": "..."}}',
+  BALANCE: '{"error": 862000000, "data": {"availBalance": 5000000, "pendBalance": 100000, "currency": "VND"}}',
   ORDERS: '{"code": 0, "data": {"items": [{"requestId": "TX...", "status": 4}]}}',
   SUBMIT: '{"code": 0, "data": {"id": "...", "status": 1}}',
   QUERY: '{"code": 0, "data": {"id": "...", "status": 4}}',
@@ -78,6 +82,7 @@ export function emptySamples(): Record<PreviewKind, PreviewSample> {
     LOGIN: EMPTY_SAMPLE,
     PACKAGES: EMPTY_SAMPLE,
     CHECK: EMPTY_SAMPLE,
+    BALANCE: EMPTY_SAMPLE,
     ORDERS: EMPTY_SAMPLE,
     SUBMIT: EMPTY_SAMPLE,
     QUERY: EMPTY_SAMPLE,
@@ -144,6 +149,7 @@ export function PreviewPanel({
     (value !== "LOGIN" || tokenEnabled) &&
     (value !== "PACKAGES" || params.spec.packages.enabled) &&
     (value !== "CHECK" || params.spec.check.enabled) &&
+    (value !== "BALANCE" || params.spec.balance.enabled) &&
     (value !== "ORDERS" || params.spec.orders.enabled);
   const kind: Kind = available(selectedKind) ? selectedKind : "SUBMIT";
   const kinds = (Object.keys(KIND_LABELS) as Kind[]).filter(available);
@@ -173,7 +179,7 @@ export function PreviewPanel({
 
   const setSample = (patch: Partial<Sample>) =>
     onSamplesChange((current) => ({ ...current, [kind]: { ...current[kind], ...patch } }));
-  const flow = kind === "PACKAGES" || kind === "CHECK" || kind === "ORDERS";
+  const flow = kind === "PACKAGES" || kind === "CHECK" || kind === "BALANCE" || kind === "ORDERS";
   const outcome = output?.result
     ? ((kind === "LOGIN" ? LOGIN_OUTCOME_META[output.result.outcome] : undefined) ??
       OUTCOME_META[output.result.outcome] ?? { label: output.result.outcome, tone: "outline" as const })
@@ -333,6 +339,7 @@ export function PreviewPanel({
                 ) : null}
                 {output.packages ? <PackagesTable packages={output.packages} /> : null}
                 {output.check ? <CheckVerdict check={output.check} /> : null}
+                {output.balance ? <BalanceVerdict balance={output.balance} /> : null}
                 {output.orders ? <OrdersTable orders={output.orders} /> : null}
               </div>
             ) : outcome && output.result ? (

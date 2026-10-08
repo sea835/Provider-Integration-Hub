@@ -70,7 +70,9 @@ export class SubmitProcessor {
 
     const adapter = this.adapters.get(config.adapterType);
     const ctx = this.configs.toContext(config);
-    const rejected = await this.rejectedByCheck(adapter, ctx, submitting);
+    const rejected =
+      (await this.rejectedByBalance(adapter, ctx, submitting)) ??
+      (await this.rejectedByCheck(adapter, ctx, submitting));
     let result: SupplierResult;
     if (rejected) {
       result = rejected;
@@ -104,6 +106,47 @@ export class SubmitProcessor {
       await this.scheduleFirstCheck(applied.order, config, result);
     }
     return DONE;
+  }
+
+  /**
+   * Kiểm tra số dư đại lý tại NCC trước lần gửi ĐẦU TIÊN (NCC bật "kiểm tra số dư trước khi gửi").
+   * Chỉ chặn khi đọc được số dư và số dư dưới mức tối thiểu; lỗi hoặc chưa rõ thì vẫn gửi.
+   */
+  private async rejectedByBalance(
+    adapter: ProviderAdapter,
+    ctx: SupplierContext,
+    order: TransactionEntity,
+  ): Promise<SupplierResult | null> {
+    if (order.submitCount !== 1 || !adapter.checkBalance) return null;
+    try {
+      if (!adapter.features?.(ctx).balanceBeforeSubmit) return null;
+      const balance = await adapter.checkBalance(ctx, {
+        action: order.action,
+        packageCode: order.packageCode,
+        phone: order.phone,
+        serial: order.serial,
+        extra: order.extra ?? {},
+      });
+      if (balance.sufficient !== false) return null;
+      this.logger.warn('Số dư tại NCC không đủ, không gửi đơn', {
+        transCode: order.transCode,
+        supplier: ctx.supplierCode,
+        available: balance.available,
+        minimum: balance.minimum,
+      });
+      return {
+        outcome: Outcome.FAILED,
+        error: { code: 'INSUFFICIENT_BALANCE', message: balance.message },
+        trace: balance.trace,
+      };
+    } catch (error) {
+      this.logger.warn('Kiểm tra số dư lỗi, vẫn gửi đơn', {
+        transCode: order.transCode,
+        supplier: ctx.supplierCode,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
   }
 
   /**

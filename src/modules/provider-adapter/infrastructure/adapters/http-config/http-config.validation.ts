@@ -13,22 +13,27 @@ import {
 import {
   AUTH_TYPES,
   AuthSpec,
+  BalanceSpec,
   BODY_TYPES,
   BodyField,
   CALL_KINDS,
   CallbackSpec,
   CallKind,
+  CHECK_MODES,
   CheckSpec,
   Condition,
   defaultSignatureRule,
   defaultSpec,
   HTTP_METHODS,
+  HOST_KEY,
+  HostSpec,
   HttpConfigParams,
   IntegrationSpec,
   KeyValue,
   OPERATORS,
   ORDER_OUTCOMES,
   MATCH_BY,
+  MAX_HOSTS,
   MAX_SIGNATURE_RULES,
   OrderMapping,
   OrdersSpec,
@@ -180,6 +185,7 @@ class Reader {
   request(raw: unknown, path: string, fallback: RequestSpec): RequestSpec {
     const o = this.object(raw, path);
     return {
+      host: this.string(o.host, `${path}.host`).trim(),
       method: this.oneOf(
         o.method,
         HTTP_METHODS,
@@ -336,9 +342,19 @@ function readCheck(r: Reader, raw: unknown, base: CheckSpec): CheckSpec {
   return {
     enabled: r.boolean(o.enabled, 'spec.check.enabled'),
     beforeSubmit: r.boolean(o.beforeSubmit, 'spec.check.beforeSubmit'),
+    mode: r.oneOf(o.mode, CHECK_MODES, 'spec.check.mode', base.mode),
     request: r.request(o.request, 'spec.check.request', base.request),
     eligible: r.list(o.eligible, 'spec.check.eligible', r.condition),
     ineligible: r.list(o.ineligible, 'spec.check.ineligible', r.condition),
+    success: r.conditions(o.success, 'spec.check.success', base.success),
+    listPath: r.string(o.listPath, 'spec.check.listPath'),
+    matchField: r.string(o.matchField, 'spec.check.matchField'),
+    matchValue: r.string(
+      o.matchValue,
+      'spec.check.matchValue',
+      base.matchValue,
+    ),
+    ignoreCase: r.boolean(o.ignoreCase, 'spec.check.ignoreCase'),
     reasonCode: r.string(o.reasonCode, 'spec.check.reasonCode'),
     reasonMessage: r.string(
       o.reasonMessage,
@@ -346,6 +362,20 @@ function readCheck(r: Reader, raw: unknown, base: CheckSpec): CheckSpec {
       base.reasonMessage,
     ),
     errorCodePrefix: r.string(o.errorCodePrefix, 'spec.check.errorCodePrefix'),
+  };
+}
+
+function readBalance(r: Reader, raw: unknown, base: BalanceSpec): BalanceSpec {
+  const o = r.object(raw, 'spec.balance');
+  return {
+    enabled: r.boolean(o.enabled, 'spec.balance.enabled'),
+    beforeSubmit: r.boolean(o.beforeSubmit, 'spec.balance.beforeSubmit'),
+    request: r.request(o.request, 'spec.balance.request', base.request),
+    success: r.conditions(o.success, 'spec.balance.success', base.success),
+    available: r.string(o.available, 'spec.balance.available'),
+    pending: r.string(o.pending, 'spec.balance.pending'),
+    currency: r.string(o.currency, 'spec.balance.currency'),
+    minimum: r.string(o.minimum, 'spec.balance.minimum').trim(),
   };
 }
 
@@ -452,6 +482,38 @@ function readFields(
   ) as OrderFieldRules;
 }
 
+function readHosts(r: Reader, raw: unknown): HostSpec[] {
+  const hosts = r.list(raw, 'spec.hosts', (item, at) => {
+    const o = r.object(item, at);
+    const key = r.string(o.key, `${at}.key`).trim();
+    const url = r.string(o.url, `${at}.url`).trim();
+    if (!HOST_KEY.test(key)) {
+      r.issues.push(
+        `${at}.key phải bắt đầu bằng chữ, chỉ gồm chữ, số, gạch dưới (tối đa 30 ký tự)`,
+      );
+    }
+    if (url && !/^https?:\/\/[^\s/]+/i.test(url)) {
+      r.issues.push(`${at}.url phải là địa chỉ http:// hoặc https:// đầy đủ`);
+    }
+    return {
+      key,
+      label: r.string(o.label, `${at}.label`).slice(0, 100),
+      url,
+    };
+  });
+  if (hosts.length > MAX_HOSTS) {
+    r.issues.push(`spec.hosts tối đa ${MAX_HOSTS} địa chỉ`);
+  }
+  const seen = new Set<string>();
+  for (const host of hosts) {
+    if (seen.has(host.key)) {
+      r.issues.push(`spec.hosts: trùng tên địa chỉ ${host.key}`);
+    }
+    seen.add(host.key);
+  }
+  return hosts.slice(0, MAX_HOSTS);
+}
+
 function readExtraFields(r: Reader, raw: unknown): OrderExtraField[] {
   const fields = r.list(raw, 'spec.extraFields', (item, at) => {
     const o = r.object(item, at);
@@ -473,6 +535,15 @@ function readExtraFields(r: Reader, raw: unknown): OrderExtraField[] {
           ),
         ),
       ],
+      options: [
+        ...new Set(
+          r
+            .list(o.options, `${at}.options`, (option, path) =>
+              r.string(option, path).trim().slice(0, 100),
+            )
+            .filter(Boolean),
+        ),
+      ].slice(0, 50),
       description: r.string(o.description, `${at}.description`).slice(0, 300),
     };
   });
@@ -562,12 +633,14 @@ function readSpec(r: Reader, raw: unknown): IntegrationSpec {
     actions: [...new Set<OrderActionType>(actions)],
     fields: readFields(r, o.fields, base.fields),
     extraFields: readExtraFields(r, o.extraFields),
+    hosts: readHosts(r, o.hosts),
     auth: readAuth(r, o.auth),
     token: readToken(r, o.token, base.token),
     signature: readSignature(r, o.signature, base.signature),
     headers: r.list(o.headers, 'spec.headers', r.keyValue),
     packages: readPackages(r, o.packages, base.packages),
     check: readCheck(r, o.check, base.check),
+    balance: readBalance(r, o.balance, base.balance),
     submit: {
       resultMode: r.oneOf(
         submit.resultMode,
@@ -686,6 +759,7 @@ function references(spec: IntegrationSpec): string[] {
     spec.token.enabled ? spec.token.request : null,
     spec.packages.enabled ? spec.packages.request : null,
     spec.check.enabled ? spec.check.request : null,
+    spec.balance.enabled ? [spec.balance.request, spec.balance.minimum] : null,
     spec.orders.enabled ? spec.orders.request : null,
     spec.signature.enabled
       ? spec.signature.rules.map((rule) => [rule.key, rule.template])
@@ -831,6 +905,22 @@ function pathIssues(params: HttpConfigParams): string[] {
       ),
     );
   }
+  if (spec.check.enabled && spec.check.mode === 'LIST') {
+    if (!spec.check.matchField) {
+      issues.push(
+        'Kiểm tra gói: chưa chọn trường chứa mã hoặc tên gói trong danh sách',
+      );
+    }
+    issues.push(
+      ...itemFieldIssues(
+        'Kiểm tra gói',
+        'Vị trí danh sách gói đăng ký được',
+        spec.check.listPath,
+        true,
+        [{ label: 'Trường so khớp gói', path: spec.check.matchField }],
+      ),
+    );
+  }
   if (spec.packages.enabled) {
     issues.push(
       ...itemFieldIssues(
@@ -851,6 +941,37 @@ function pathIssues(params: HttpConfigParams): string[] {
 }
 
 /** Những gì còn thiếu để chạy được. Không chặn lưu; giao diện hiện cảnh báo. */
+const REQUEST_LABELS: Array<[keyof IntegrationSpec, string]> = [
+  ['token', 'Đăng nhập lấy token'],
+  ['packages', '1. Danh sách gói'],
+  ['check', '2. Kiểm tra gói'],
+  ['balance', 'Số dư tại nhà cung cấp'],
+  ['submit', '3. Đăng ký gói'],
+  ['query', '4. Kiểm tra trạng thái'],
+  ['orders', '5. Danh sách đơn'],
+  ['test', 'Kiểm tra kết nối'],
+];
+
+/** API chọn địa chỉ gốc không còn trong danh sách, hoặc địa chỉ chưa nhập URL. */
+function hostIssues(spec: IntegrationSpec): string[] {
+  const hosts = new Map(spec.hosts.map((host) => [host.key, host]));
+  const issues: string[] = [];
+  for (const host of spec.hosts) {
+    if (!host.url) {
+      issues.push(`Địa chỉ gốc "${host.key}": chưa nhập URL`);
+    }
+  }
+  for (const [section, label] of REQUEST_LABELS) {
+    const request = (spec[section] as { request?: RequestSpec }).request;
+    if (request?.host && !hosts.has(request.host)) {
+      issues.push(
+        `${label}: đang gọi tới địa chỉ gốc "${request.host}" nhưng địa chỉ này không còn trong danh sách Địa chỉ gốc`,
+      );
+    }
+  }
+  return issues;
+}
+
 const EXTRA_REFERENCE = /order\.extra\.([A-Za-z0-9_]+)/g;
 
 /** Cấu hình dùng {{order.extra.X}} mà chưa khai báo X thì Store không gửi được, giá trị luôn rỗng. */
@@ -933,6 +1054,7 @@ export function readinessIssues(params: HttpConfigParams): string[] {
       issues.push('Kiểm tra gói: chưa nhập đường dẫn API');
     }
     if (
+      spec.check.mode === 'DIRECT' &&
       spec.check.eligible.length === 0 &&
       spec.check.ineligible.length === 0
     ) {
@@ -974,6 +1096,24 @@ export function readinessIssues(params: HttpConfigParams): string[] {
   }
   if (spec.signature.enabled) issues.push(...signatureIssues(spec));
   issues.push(...extraReferenceIssues(spec));
+  issues.push(...hostIssues(spec));
+  if (spec.balance.enabled) {
+    if (!spec.balance.request.path) {
+      issues.push('Số dư: chưa nhập đường dẫn API số dư');
+    }
+    if (!spec.balance.available) {
+      issues.push('Số dư: chưa chọn trường số dư khả dụng trong phản hồi');
+    }
+    if (
+      spec.balance.minimum &&
+      !spec.balance.minimum.includes('{{') &&
+      !Number.isFinite(Number(spec.balance.minimum))
+    ) {
+      issues.push(
+        `Số dư: mức tối thiểu "${spec.balance.minimum}" không phải số (vd 100000 hoặc {{vars.minBalance}})`,
+      );
+    }
+  }
   issues.push(...pathIssues(params));
   for (const ref of references(spec)) {
     if (ref === 'token') {

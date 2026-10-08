@@ -76,10 +76,71 @@ describe('PackageService', () => {
     expect(adapter.listPackages).toHaveBeenCalledTimes(1);
     expect(adapter.listPackages).toHaveBeenCalledWith(
       { supplierCode: 'NCC' },
-      { action: 'BUY_DATA', phone: '0912345678', serial: null },
+      { action: 'BUY_DATA', phone: '0912345678', serial: null, extra: {} },
     );
     await service.listPackages({ supplierCode: 'NCC' });
     expect(adapter.listPackages).toHaveBeenCalledTimes(2);
+  });
+
+  it('trường thêm (provider): có thì gửi theo provider, sai giá trị hoặc tham số lạ → 400, nhớ riêng theo provider', async () => {
+    adapter.extraFields = jest.fn(() => [
+      {
+        key: 'provider',
+        label: 'Nhà mạng',
+        type: 'TEXT',
+        required: true,
+        actions: [],
+        options: ['viettel', 'vinaphone'],
+        description: '',
+      },
+    ]);
+
+    await service.listPackages({ supplierCode: 'NCC', phone: '0912345678' });
+    expect(adapter.listPackages).toHaveBeenLastCalledWith(
+      { supplierCode: 'NCC' },
+      { action: null, phone: '0912345678', serial: null, extra: {} },
+    );
+
+    await service.listPackages({
+      supplierCode: 'NCC',
+      extra: { provider: 'viettel' },
+    });
+    expect(adapter.listPackages).toHaveBeenLastCalledWith(
+      { supplierCode: 'NCC' },
+      {
+        action: null,
+        phone: null,
+        serial: null,
+        extra: { provider: 'viettel' },
+      },
+    );
+    await service.listPackages({
+      supplierCode: 'NCC',
+      extra: { provider: 'vinaphone' },
+    });
+    expect(adapter.listPackages).toHaveBeenCalledTimes(3);
+
+    await expect(
+      service.listPackages({
+        supplierCode: 'NCC',
+        extra: { provider: 'mobifone' },
+      }),
+    ).rejects.toThrow('extra.provider chỉ nhận: viettel, vinaphone');
+    await expect(
+      service.listPackages({ supplierCode: 'NCC', extra: { provder: 'x' } }),
+    ).rejects.toThrow('extra.provder không có trong');
+
+    await service.checkPackage({
+      supplierCode: 'NCC',
+      action: 'BUY_DATA',
+      packageCode: 'P1',
+      phone: '0912345678',
+      extra: { provider: 'viettel' },
+    });
+    expect(adapter.checkPackage).toHaveBeenLastCalledWith(
+      { supplierCode: 'NCC' },
+      expect.objectContaining({ extra: { provider: 'viettel' } }),
+    );
   });
 
   it('NCC không có API / NCC lỗi / NCC tạm dừng → lỗi rõ ràng', async () => {

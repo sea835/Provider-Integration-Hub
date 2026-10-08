@@ -124,6 +124,32 @@ export function ExtraFieldsEditor({ kit }: { kit: EditorKit }) {
                 </Button>
               </div>
             </div>
+            {field.type === "TEXT" || field.type === "TEXT_LIST" ? (
+              <div className="grid gap-1">
+                <Label htmlFor={`${id}-options`} className="text-[11.5px] font-normal text-muted-foreground">
+                  Giá trị cho phép (cách nhau dấu phẩy, để trống là không giới hạn)
+                </Label>
+                <Input
+                  id={`${id}-options`}
+                  defaultValue={field.options.join(", ")}
+                  onBlur={(event) =>
+                    update(index, {
+                      options: [
+                        ...new Set(
+                          event.target.value
+                            .split(",")
+                            .map((item) => item.trim())
+                            .filter(Boolean),
+                        ),
+                      ],
+                    })
+                  }
+                  placeholder="viettel, vinaphone"
+                  spellCheck={false}
+                  className="h-8 font-mono text-[13px]"
+                />
+              </div>
+            ) : null}
             {problem ? (
               <p id={`${id}-problem`} className="text-[12.5px] text-danger">
                 {problem}

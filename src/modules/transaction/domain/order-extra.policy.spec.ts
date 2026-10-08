@@ -9,6 +9,7 @@ const fields: OrderExtraField[] = [
     type: 'DATE',
     required: true,
     actions: ['ACTIVATE_SIM'],
+    options: [],
     description: '',
   },
   {
@@ -17,6 +18,7 @@ const fields: OrderExtraField[] = [
     type: 'TEXT_LIST',
     required: false,
     actions: [],
+    options: [],
     description: '',
   },
   {
@@ -25,6 +27,7 @@ const fields: OrderExtraField[] = [
     type: 'NUMBER',
     required: false,
     actions: [],
+    options: [],
     description: '',
   },
   {
@@ -33,6 +36,7 @@ const fields: OrderExtraField[] = [
     type: 'TEXT',
     required: false,
     actions: [],
+    options: [],
     description: '',
   },
 ];

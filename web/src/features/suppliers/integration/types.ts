@@ -41,7 +41,7 @@ export type SignEncoding = (typeof SIGN_ENCODINGS)[number];
 export const SIGN_TARGETS = ["BODY_FIELD", "HEADER"] as const;
 export type SignTarget = (typeof SIGN_TARGETS)[number];
 
-export const CALL_KINDS = ["login", "packages", "check", "submit", "query", "orders", "test"] as const;
+export const CALL_KINDS = ["login", "packages", "check", "balance", "submit", "query", "orders", "test"] as const;
 export type CallKind = (typeof CALL_KINDS)[number];
 
 export const QUERY_SOURCES = ["SINGLE", "ORDERS"] as const;
@@ -60,7 +60,16 @@ export interface BodyField {
   omitIfEmpty: boolean;
 }
 
+export interface HostSpec {
+  key: string;
+  label: string;
+  url: string;
+}
+
+export const MAX_HOSTS = 10;
+
 export interface RequestSpec {
+  host: string;
   method: HttpMethod;
   path: string;
   query: KeyValue[];
@@ -128,15 +137,35 @@ export interface PackagesSpec {
   description: string;
 }
 
+export const CHECK_MODES = ["DIRECT", "LIST"] as const;
+export type CheckMode = (typeof CHECK_MODES)[number];
+
 export interface CheckSpec {
   enabled: boolean;
   beforeSubmit: boolean;
+  mode: CheckMode;
   request: RequestSpec;
   eligible: Condition[];
   ineligible: Condition[];
+  success: Condition[];
+  listPath: string;
+  matchField: string;
+  matchValue: string;
+  ignoreCase: boolean;
   reasonCode: string;
   reasonMessage: string;
   errorCodePrefix: string;
+}
+
+export interface BalanceSpec {
+  enabled: boolean;
+  beforeSubmit: boolean;
+  request: RequestSpec;
+  success: Condition[];
+  available: string;
+  pending: string;
+  currency: string;
+  minimum: string;
 }
 
 export const RESULT_MODES = ["POLL", "SYNC"] as const;
@@ -159,12 +188,14 @@ export interface IntegrationSpec {
   actions: string[];
   fields: Record<string, ActionFieldRules>;
   extraFields: ExtraField[];
+  hosts: HostSpec[];
   auth: { type: AuthType; name: string; value: string; username: string; password: string };
   token: TokenSpec;
   signature: SignatureSpec;
   headers: KeyValue[];
   packages: PackagesSpec;
   check: CheckSpec;
+  balance: BalanceSpec;
   submit: {
     resultMode: ResultMode;
     request: RequestSpec;
@@ -214,5 +245,6 @@ export interface ExtraField {
   type: ExtraFieldType;
   required: boolean;
   actions: string[];
+  options: string[];
   description: string;
 }

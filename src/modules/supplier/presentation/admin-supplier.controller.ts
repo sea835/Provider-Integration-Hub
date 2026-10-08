@@ -26,6 +26,7 @@ import { IntegrationPreviewService } from '@modules/provider-adapter/application
 import { IntegrationCallService } from '@modules/provider-adapter/application/integration-call.service';
 import type {
   LiveCallOutput,
+  SupplierBalanceOutput,
   SupplierOrdersOutput,
 } from '@modules/provider-adapter/application/integration-call.service';
 import { SupplierOrdersRequest } from '@modules/supplier/presentation/dto/supplier-orders.request';
@@ -137,6 +138,18 @@ export class AdminSupplierController {
   ): Promise<SupplierOrdersOutput> {
     const { ctx, adapterType } = await this.supplierService.liveContext(id);
     return this.integrationCall.supplierOrders(ctx, adapterType, dto);
+  }
+
+  @Get(':id/balance')
+  @ApiOperation({
+    summary:
+      'Số dư tài khoản đại lý tại nhà cung cấp (API số dư trong cấu hình đã lưu)',
+  })
+  async balance(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<SupplierBalanceOutput> {
+    const { ctx, adapterType } = await this.supplierService.liveContext(id);
+    return this.integrationCall.supplierBalance(ctx, adapterType);
   }
 
   @Post(':id/test-connection')

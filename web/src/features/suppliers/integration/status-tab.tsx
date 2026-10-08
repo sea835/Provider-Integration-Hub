@@ -1,8 +1,17 @@
 "use client";
 
 import { Input } from "@/components/ui/input";
-import { ConditionsEditor, FieldRow, PathInput, RulesEditor, SmallSelect, StatusMapEditor } from "./fields";
-import { MATCH_BY } from "./types";
+import { Switch } from "@/components/ui/switch";
+import {
+  ConditionsEditor,
+  FieldRow,
+  PathInput,
+  RulesEditor,
+  SmallSelect,
+  StatusMapEditor,
+  TemplateInput,
+} from "./fields";
+import { CHECK_MODES, MATCH_BY } from "./types";
 import { JumpLink, Section, type EditorKit } from "./section";
 
 function Disabled({ onEnable }: { onEnable: () => void }) {
@@ -177,14 +186,102 @@ export function StatusTab({ kit }: { kit: EditorKit }) {
         {...kit.section("checkResult")}
         state={spec.check.enabled}
         summary={
-          spec.check.enabled
-            ? `${spec.check.eligible.length} điều kiện được · ${spec.check.ineligible.length} điều kiện không được`
-            : "Nhà cung cấp không có API kiểm tra gói"
+          !spec.check.enabled
+            ? "Nhà cung cấp không có API kiểm tra gói"
+            : spec.check.mode === "LIST"
+              ? `Dò ${spec.check.matchValue || "{{order.packageCode}}"} trong ${spec.check.matchField || "?"}`
+              : `${spec.check.eligible.length} điều kiện được · ${spec.check.ineligible.length} điều kiện không được`
         }
         title="2. Phản hồi kiểm tra gói"
-        description="Khớp điều kiện Được → đăng ký được. Khớp Không được → không đăng ký được (có kiểm tra trước mỗi đơn thì đơn thất bại ngay). Còn lại là chưa rõ, Hub vẫn gửi đơn."
+        description={
+          spec.check.mode === "LIST"
+            ? "Nhà cung cấp trả danh sách gói thuê bao đăng ký được. Có gói của đơn trong danh sách → được; không có → không được (có kiểm tra trước mỗi đơn thì đơn thất bại ngay). Lỗi hoặc không đọc được danh sách → chưa rõ, Hub vẫn gửi đơn."
+            : "Khớp điều kiện Được → đăng ký được. Khớp Không được → không đăng ký được (có kiểm tra trước mỗi đơn thì đơn thất bại ngay). Còn lại là chưa rõ, Hub vẫn gửi đơn."
+        }
       >
         {spec.check.enabled ? (
+          <>
+            <FieldRow label="Cách xác định">
+              <SmallSelect
+                value={spec.check.mode}
+                onChange={(mode) => kit.set(["check", "mode"], mode)}
+                options={CHECK_MODES}
+                labels={{
+                  DIRECT: "Đọc kết quả trả về (được / không được)",
+                  LIST: "Dò gói trong danh sách gói đăng ký được",
+                }}
+                ariaLabel="Cách xác định gói đăng ký được"
+                className="sm:w-96"
+              />
+            </FieldRow>
+          </>
+        ) : null}
+        {spec.check.enabled && spec.check.mode === "LIST" ? (
+          <>
+            <FieldRow label="Lời gọi hợp lệ khi" hint="Không khớp = chưa rõ, Hub vẫn gửi đơn. Để trống = HTTP 2xx.">
+              <ConditionsEditor
+                items={spec.check.success}
+                onChange={(success) => kit.set(["check", "success"], success)}
+                mode="response"
+                addLabel="Thêm điều kiện"
+                emptyText="HTTP 2xx là hợp lệ."
+              />
+            </FieldRow>
+            <FieldRow label="Vị trí danh sách" hint="Để trống thì lấy theo ô Trường so khớp dạng data.items[*].code.">
+              <PathInput
+                value={spec.check.listPath}
+                onChange={(value) => kit.set(["check", "listPath"], value)}
+                mode="list"
+                label="Vị trí danh sách gói đăng ký được"
+                placeholder="data hoặc data.packages"
+              />
+            </FieldRow>
+            <FieldRow label="Trường so khớp" hint="Trường trong mỗi gói của danh sách: mã gói hoặc tên gói.">
+              <PathInput
+                value={spec.check.matchField}
+                onChange={(value) => kit.set(["check", "matchField"], value)}
+                mode="order"
+                bases={[spec.check.listPath]}
+                container={() => ({
+                  path: spec.check.listPath,
+                  label: "Vị trí danh sách gói đăng ký được",
+                  adopt: (path) => kit.set(["check", "listPath"], path),
+                })}
+                label="Trường so khớp gói"
+                placeholder="data.packages[*].code"
+              />
+            </FieldRow>
+            <FieldRow
+              label="Giá trị của đơn đem dò"
+              hint="Mặc định mã gói Store gửi. Dò theo tên gói mà Store không gửi tên trong mã gói thì khai báo trường thêm, vd {{order.extra.packageName}}."
+            >
+              <TemplateInput
+                value={spec.check.matchValue}
+                onChange={(value) => kit.set(["check", "matchValue"], value)}
+                variables={kit.variables}
+                ariaLabel="Giá trị của đơn đem dò"
+                placeholder="{{order.packageCode}}"
+              />
+            </FieldRow>
+            <FieldRow label="So khớp">
+              <div className="flex h-8 items-center gap-2">
+                <Switch
+                  id="check-ignore-case"
+                  checked={spec.check.ignoreCase}
+                  onCheckedChange={(ignoreCase) => kit.set(["check", "ignoreCase"], ignoreCase)}
+                />
+                <label htmlFor="check-ignore-case" className="text-[13px]">
+                  Không phân biệt chữ hoa, chữ thường (luôn bỏ khoảng trắng hai đầu)
+                </label>
+              </div>
+            </FieldRow>
+            <p className="rounded-md bg-subtle px-3 py-2 text-[12.5px] text-muted-foreground">
+              Không có trong danh sách: đơn thất bại với mã <span className="font-mono">PACKAGE_NOT_ELIGIBLE</span>,
+              Store tra cứu gói nhận <span className="font-mono">eligible: false</span>.
+            </p>
+            <JumpLink onClick={() => kit.reveal("checkApi")}>Xem API 2</JumpLink>
+          </>
+        ) : spec.check.enabled ? (
           <>
             <FieldRow label="Đăng ký được khi" hint="Tất cả điều kiện đều đúng.">
               <ConditionsEditor
@@ -237,6 +334,81 @@ export function StatusTab({ kit }: { kit: EditorKit }) {
           </>
         ) : (
           <Disabled onEnable={() => kit.reveal("checkApi")} />
+        )}
+      </Section>
+
+      <Section
+        {...kit.section("balanceResult")}
+        state={spec.balance.enabled}
+        summary={
+          spec.balance.enabled
+            ? `Số dư ở ${spec.balance.available || "?"} · tối thiểu ${spec.balance.minimum || "lớn hơn 0"}`
+            : "Không dùng"
+        }
+        title="Phản hồi số dư"
+        description="Đọc số dư khả dụng và so với mức tối thiểu để gửi đơn. Đủ → gửi đơn. Không đủ → đơn thất bại ngay khi bật kiểm tra trước mỗi đơn. Lỗi hoặc không đọc được → chưa rõ, Hub vẫn gửi đơn."
+      >
+        {spec.balance.enabled ? (
+          <>
+            <FieldRow label="Lời gọi hợp lệ khi" hint="Không khớp = chưa rõ. Vd MoMo: body.error là 862000000.">
+              <ConditionsEditor
+                items={spec.balance.success}
+                onChange={(success) => kit.set(["balance", "success"], success)}
+                mode="response"
+                addLabel="Thêm điều kiện"
+                emptyText="HTTP 2xx là hợp lệ."
+              />
+            </FieldRow>
+            <FieldRow label="Các trường trong phản hồi" hint="Số dư khả dụng là bắt buộc.">
+              <div className="grid grid-cols-1 gap-2 @2xl:grid-cols-3">
+                <div className="grid gap-1">
+                  <span className="text-[11.5px] text-muted-foreground">Số dư khả dụng</span>
+                  <PathInput
+                    value={spec.balance.available}
+                    onChange={(value) => kit.set(["balance", "available"], value)}
+                    mode="response"
+                    label="Số dư khả dụng"
+                    placeholder="body.data.availBalance"
+                  />
+                </div>
+                <div className="grid gap-1">
+                  <span className="text-[11.5px] text-muted-foreground">Số tiền tạm giữ</span>
+                  <PathInput
+                    value={spec.balance.pending}
+                    onChange={(value) => kit.set(["balance", "pending"], value)}
+                    mode="response"
+                    label="Số tiền tạm giữ"
+                    placeholder="body.data.pendBalance"
+                  />
+                </div>
+                <div className="grid gap-1">
+                  <span className="text-[11.5px] text-muted-foreground">Đơn vị tiền</span>
+                  <PathInput
+                    value={spec.balance.currency}
+                    onChange={(value) => kit.set(["balance", "currency"], value)}
+                    mode="response"
+                    label="Đơn vị tiền"
+                    placeholder="body.data.currency"
+                  />
+                </div>
+              </div>
+            </FieldRow>
+            <FieldRow
+              label="Số dư tối thiểu để gửi đơn"
+              hint="Số, hoặc biến: {{vars.minBalance}}, theo đơn: {{order.extra.amount}}. Để trống = chỉ cần lớn hơn 0."
+            >
+              <TemplateInput
+                value={spec.balance.minimum}
+                onChange={(value) => kit.set(["balance", "minimum"], value)}
+                variables={kit.variables}
+                ariaLabel="Số dư tối thiểu để gửi đơn"
+                placeholder="100000"
+              />
+            </FieldRow>
+            <JumpLink onClick={() => kit.reveal("balanceApi")}>Xem API số dư</JumpLink>
+          </>
+        ) : (
+          <Disabled onEnable={() => kit.reveal("balanceApi")} />
         )}
       </Section>
 

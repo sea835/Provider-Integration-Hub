@@ -21,6 +21,7 @@ import {
 } from "./fields";
 import { requestSummary, Section, type EditorKit } from "./section";
 import { ExtraFieldsEditor } from "./extra-fields-editor";
+import { HostsSection } from "./hosts-section";
 import { SignatureSection } from "./signature-section";
 import { AUTH_TYPES, FIELD_RULES, INTEGRATION_ACTIONS, type IntegrationSpec } from "./types";
 
@@ -147,6 +148,8 @@ export function ConnectionTab({
 
   return (
     <>
+      <HostsSection kit={kit} />
+
       <Section
         {...kit.section("secrets")}
         summary={`${vars.filter((row) => row.name).length} biến · ${secretCount} bí mật`}

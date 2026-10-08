@@ -328,6 +328,83 @@ describe('Tự cấu hình: tích hợp ANI SIM trên giao diện (e2e)', () => 
     ]);
   });
 
+  it('danh sách gói theo provider: có provider thì lọc theo provider, không có thì theo SĐT; giá trị lạ → 400', async () => {
+    const spec = anisim.spec as unknown as {
+      packages: { request: { query: Record<string, unknown>[] } };
+    };
+    await http
+      .patch(`/admin/suppliers/${supplierId}`)
+      .set(admin())
+      .send({
+        params: {
+          ...anisim,
+          spec: {
+            ...(anisim.spec as Record<string, unknown>),
+            extraFields: [
+              {
+                key: 'provider',
+                label: 'Nhà mạng',
+                type: 'TEXT',
+                options: ['viettel', 'vinaphone'],
+              },
+            ],
+            packages: {
+              ...spec.packages,
+              request: {
+                ...spec.packages.request,
+                query: [
+                  ...spec.packages.request.query,
+                  {
+                    name: 'msisdn',
+                    value: '{{order.phone}}',
+                    omitIfEmpty: true,
+                  },
+                  {
+                    name: 'provider',
+                    value: '{{order.extra.provider}}',
+                    omitIfEmpty: true,
+                  },
+                ],
+              },
+            },
+          },
+        },
+      })
+      .expect(200);
+    await new Promise((r) => setTimeout(r, 300));
+
+    const list = (query: string) =>
+      http
+        .get(`/v1/suppliers/${supplierCode}/packages?${query}`)
+        .set({ 'x-api-key': apiKey });
+    const lastPlans = () =>
+      ani.requests.filter((line) => line.includes('/package-plans')).at(-1);
+
+    await list('provider=viettel').expect(200);
+    expect(lastPlans()).toBe(
+      'GET /api/v1/agency/package-plans?page=0&limit=100&provider=viettel',
+    );
+    await list('phone=84912345678').expect(200);
+    expect(lastPlans()).toBe(
+      'GET /api/v1/agency/package-plans?page=0&limit=100&msisdn=0912345678',
+    );
+
+    expect((await list('provider=mobifone').expect(400)).body).toMatchObject({
+      message:
+        'extra.provider chỉ nhận: viettel, vinaphone (đang là "mobifone")',
+    });
+    expect((await list('nhamang=viettel').expect(400)).body).toMatchObject({
+      message: expect.stringContaining('extra.nhamang') as string,
+    });
+
+    await http
+      .patch(`/admin/suppliers/${supplierId}`)
+      .set(admin())
+      .send({ params: anisim })
+      .expect(200);
+    await new Promise((r) => setTimeout(r, 300));
+  });
+
   it('ANI không có API kiểm tra gói → 422 không hỗ trợ', async () => {
     const res = await http
       .post('/v1/packages/check')
@@ -382,7 +459,7 @@ describe('Tự cấu hình: tích hợp ANI SIM trên giao diện (e2e)', () => 
   });
 
   it('trường thêm (extra): NCC khai báo ngày kích hoạt + ICCID → Hub kiểm tra rồi gửi đúng kiểu', async () => {
-    const spec = anisim.spec as {
+    const spec = anisim.spec as unknown as {
       submit: { request: { body: Record<string, unknown>[] } };
     };
     await http

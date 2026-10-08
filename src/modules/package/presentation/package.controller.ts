@@ -6,9 +6,11 @@ import {
   HttpStatus,
   Param,
   Post,
-  Query,
+  Req,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import type { Request } from 'express';
+import { ORDER_ACTION_VALUES } from '@modules/provider-adapter/domain/order-action';
 import { MerchantAuth } from '@modules/merchant/presentation/decorators/merchant-auth.decorator';
 import {
   PackageCheckOutput,
@@ -17,7 +19,7 @@ import {
 } from '@modules/package/application/package.service';
 import {
   CheckPackageRequest,
-  ListPackagesQuery,
+  parsePackagesQuery,
 } from '@modules/package/presentation/dto/package.request';
 
 @MerchantAuth()
@@ -31,11 +33,29 @@ export class PackageController {
     summary:
       'API 1: danh sách gói của một nhà cung cấp (Hub gọi sang NCC, trả dạng chuẩn)',
   })
+  @ApiQuery({ name: 'action', required: false, enum: ORDER_ACTION_VALUES })
+  @ApiQuery({
+    name: 'phone',
+    required: false,
+    example: '0912345678',
+    description: 'Một số NCC chỉ trả gói phù hợp với thuê bao',
+  })
+  @ApiQuery({ name: 'serial', required: false })
+  @ApiQuery({
+    name: 'provider',
+    required: false,
+    example: 'viettel',
+    description:
+      'Ví dụ trường thêm: mỗi NCC khai báo trường thêm riêng, Store gửi thẳng làm tham số (?provider=viettel). Tham số lạ bị 400',
+  })
   list(
     @Param('supplierCode') supplierCode: string,
-    @Query() query: ListPackagesQuery,
+    @Req() req: Request,
   ): Promise<PackageListOutput> {
-    return this.packages.listPackages({ supplierCode, ...query });
+    return this.packages.listPackages({
+      supplierCode,
+      ...parsePackagesQuery(req.query),
+    });
   }
 
   @Post('packages/check')

@@ -4,7 +4,8 @@ import { ChevronDown, ChevronRight, MousePointerClick } from "lucide-react";
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-export type PickSource = "LOGIN" | "PACKAGES" | "CHECK" | "SUBMIT" | "QUERY" | "ORDERS" | "TEST" | "CALLBACK";
+export type PickSource =
+  "LOGIN" | "PACKAGES" | "CHECK" | "BALANCE" | "SUBMIT" | "QUERY" | "ORDERS" | "TEST" | "CALLBACK";
 
 export interface PickOutcome {
   value: string;

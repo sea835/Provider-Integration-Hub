@@ -33,6 +33,14 @@ function blank(value: unknown): boolean {
   );
 }
 
+function allowed(field: OrderExtraField, value: string): void {
+  if (field.options.length > 0 && !field.options.includes(value)) {
+    throw new InvalidOrderRequestError(
+      `extra.${field.key} chỉ nhận: ${field.options.join(', ')} (đang là "${value}")`,
+    );
+  }
+}
+
 function coerce(field: OrderExtraField, value: unknown): OrderExtraValue {
   const name = `extra.${field.key}`;
   switch (field.type) {
@@ -67,7 +75,9 @@ function coerce(field: OrderExtraField, value: unknown): OrderExtraValue {
           `${name} phải là danh sách chuỗi không rỗng (tối đa ${MAX_LIST_ITEMS} phần tử, mỗi phần tử ${MAX_LIST_ITEM} ký tự)`,
         );
       }
-      return (items as string[]).map((item) => item.trim());
+      const list = (items as string[]).map((item) => item.trim());
+      list.forEach((item) => allowed(field, item));
+      return list;
     }
     default: {
       if (typeof value !== 'string' && typeof value !== 'number') {
@@ -77,6 +87,7 @@ function coerce(field: OrderExtraField, value: unknown): OrderExtraValue {
       if (text.length > MAX_TEXT) {
         throw new InvalidOrderRequestError(`${name} tối đa ${MAX_TEXT} ký tự`);
       }
+      allowed(field, text);
       return text;
     }
   }
@@ -87,9 +98,10 @@ function coerce(field: OrderExtraField, value: unknown): OrderExtraValue {
  * bắt buộc phải có, đúng kiểu. Trả về giá trị đã chuẩn hoá (bỏ trường rỗng).
  */
 export function resolveOrderExtra(
-  action: OrderActionType,
+  action: OrderActionType | null,
   raw: Record<string, unknown> | undefined,
   declared: OrderExtraField[],
+  { enforceRequired = true }: { enforceRequired?: boolean } = {},
 ): OrderExtra {
   const fields = extraFieldsFor(declared, action);
   const allowed = new Map(fields.map((field) => [field.key, field]));
@@ -100,7 +112,7 @@ export function resolveOrderExtra(
       const known = declared.some((field) => field.key === key);
       throw new InvalidOrderRequestError(
         known
-          ? `extra.${key} không dùng cho thao tác ${action}`
+          ? `extra.${key} không dùng cho thao tác ${action ?? ''}`
           : fields.length > 0
             ? `extra.${key} không có trong các trường nhà cung cấp này nhận (${fields.map((field) => field.key).join(', ')})`
             : `Nhà cung cấp này không nhận trường thêm nào (extra.${key})`,
@@ -112,7 +124,7 @@ export function resolveOrderExtra(
   for (const field of fields) {
     const value = input[field.key];
     if (blank(value)) {
-      if (field.required) {
+      if (field.required && enforceRequired && action) {
         throw new InvalidOrderRequestError(
           `Thao tác ${action} bắt buộc có extra.${field.key}${field.label ? ` (${field.label})` : ''}`,
         );

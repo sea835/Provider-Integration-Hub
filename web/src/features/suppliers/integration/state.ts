@@ -19,6 +19,7 @@ function mergeDefaults(base: unknown, value: unknown): unknown {
 }
 
 const request = (method: RequestSpec["method"]): RequestSpec => ({
+  host: "",
   method,
   path: "",
   query: [],
@@ -39,7 +40,16 @@ export function emptySignatureRule(label = "Chữ ký"): SignatureRule {
     encoding: "HEX",
     target: "BODY_FIELD",
     name: "signature",
-    apply: { login: false, packages: false, check: false, submit: true, query: false, orders: false, test: false },
+    apply: {
+      login: false,
+      packages: false,
+      check: false,
+      balance: false,
+      submit: true,
+      query: false,
+      orders: false,
+      test: false,
+    },
   };
 }
 
@@ -53,6 +63,7 @@ export function emptySpec(): IntegrationSpec {
       CANCEL_PACKAGE: { phone: "OPTIONAL", serial: "OPTIONAL" },
     },
     extraFields: [],
+    hosts: [],
     auth: { type: "NONE", name: "", value: "", username: "", password: "" },
     token: {
       enabled: false,
@@ -78,12 +89,28 @@ export function emptySpec(): IntegrationSpec {
     check: {
       enabled: false,
       beforeSubmit: false,
+      mode: "DIRECT",
       request: request("GET"),
       eligible: [],
       ineligible: [],
+      success: [http2xx()],
+      listPath: "",
+      matchField: "",
+      matchValue: "{{order.packageCode}}",
+      ignoreCase: false,
       reasonCode: "",
       reasonMessage: "body.message",
       errorCodePrefix: "",
+    },
+    balance: {
+      enabled: false,
+      beforeSubmit: false,
+      request: request("GET"),
+      success: [http2xx()],
+      available: "",
+      pending: "",
+      currency: "",
+      minimum: "",
     },
     submit: {
       resultMode: "SYNC",
@@ -159,14 +186,19 @@ function migrateSignature(spec: unknown): unknown {
 }
 
 export function emptyExtraField(): ExtraField {
-  return { key: "", label: "", type: "TEXT", required: false, actions: [], description: "" };
+  return { key: "", label: "", type: "TEXT", required: false, actions: [], options: [], description: "" };
 }
 
 function migrateExtraFields(spec: unknown): unknown {
-  if (!isPlain(spec) || !Array.isArray(spec.extraFields)) return spec;
+  if (!isPlain(spec)) return spec;
   return {
     ...spec,
-    extraFields: spec.extraFields.filter(isPlain).map((field) => mergeDefaults(emptyExtraField(), field)),
+    ...(Array.isArray(spec.extraFields)
+      ? { extraFields: spec.extraFields.filter(isPlain).map((field) => mergeDefaults(emptyExtraField(), field)) }
+      : {}),
+    ...(Array.isArray(spec.hosts)
+      ? { hosts: spec.hosts.filter(isPlain).map((host) => mergeDefaults({ key: "", label: "", url: "" }, host)) }
+      : {}),
   };
 }
 

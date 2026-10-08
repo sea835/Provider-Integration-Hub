@@ -364,4 +364,73 @@ describe('Tự cấu hình: tích hợp MoMo có đăng nhập và chữ ký (e2
     expect(events).not.toContain(PASSWORD);
     expect(events).toContain('Signature Invalid');
   });
+
+  it('số dư: admin xem số dư MoMo; bật kiểm tra trước khi gửi → không đủ thì đơn thất bại ngay, không gửi MoMo', async () => {
+    const id = supplierIds[0];
+    const view = await http
+      .get(`/admin/suppliers/${id}/balance`)
+      .set(admin())
+      .expect(200);
+    expect(view.body).toMatchObject({
+      supported: true,
+      ok: true,
+      currency: 'VND',
+      sufficient: true,
+    });
+    expect((view.body as { available: number }).available).toBeGreaterThan(0);
+
+    const spec = momo.spec as Record<string, unknown> & {
+      balance: Record<string, unknown>;
+    };
+    const params = (min: string, beforeSubmit: boolean) => ({
+      ...momo,
+      vars: { ...momo.vars, partnerCode: 'PQ_E2E' },
+      spec: {
+        ...spec,
+        balance: { ...spec.balance, beforeSubmit, minimum: min },
+      },
+    });
+    await http
+      .patch(`/admin/suppliers/${id}`)
+      .set(admin())
+      .send({ params: params('100000', true) })
+      .expect(200);
+    await new Promise((r) => setTimeout(r, 500));
+    mock.setBalance(50_000);
+
+    try {
+      const creates = () =>
+        mock.requests.filter((r) =>
+          r.startsWith('POST /telco/v1/orders/create'),
+        ).length;
+      const before = creates();
+      const res = await buy('0912345671').expect(202);
+      const transCode = (res.body as OrderBody).transCode;
+      const done = await waitStatus(transCode, 'FAILED');
+      expect(done.error).toMatchObject({
+        code: 'INSUFFICIENT_BALANCE',
+        message:
+          'Số dư khả dụng 50.000 VND, không đủ (cần tối thiểu 100.000 VND)',
+      });
+      expect(creates()).toBe(before);
+      expect(mock.orders.has(transCode)).toBe(false);
+
+      const low = await http
+        .get(`/admin/suppliers/${id}/balance`)
+        .set(admin())
+        .expect(200);
+      expect(low.body).toMatchObject({
+        available: 50000,
+        minimum: 100000,
+        sufficient: false,
+      });
+    } finally {
+      mock.setBalance(5_000_000);
+      await http
+        .patch(`/admin/suppliers/${id}`)
+        .set(admin())
+        .send({ params: params('', false) })
+        .expect(200);
+    }
+  });
 });

@@ -2,7 +2,7 @@
 
 import { Badge, type BadgeTone } from "@/components/ui/badge";
 import { formatNumber } from "@/lib/format";
-import type { PackageCheck, SupplierOrderSummary, SupplierPackage } from "../api";
+import type { PackageCheck, SupplierOrderSummary, SupplierPackage, BalanceView } from "../api";
 
 export const ORDER_OUTCOME_META: Record<string, { label: string; tone: BadgeTone }> = {
   SUCCESS: { label: "Thành công", tone: "success" },
@@ -63,6 +63,37 @@ export function CheckVerdict({ check }: { check: PackageCheck }) {
           <span>{check.reason.message}</span>
         </>
       ) : null}
+    </div>
+  );
+}
+
+function money(value: number | null, currency: string | null): string {
+  if (value === null) return "—";
+  return `${value.toLocaleString("vi-VN")}${currency ? ` ${currency}` : ""}`;
+}
+
+export function BalanceVerdict({ balance }: { balance: BalanceView }) {
+  const meta =
+    balance.sufficient === true
+      ? { label: "Đủ số dư", tone: "success" as const }
+      : balance.sufficient === false
+        ? { label: "Không đủ số dư", tone: "danger" as const }
+        : { label: "Chưa rõ, Hub vẫn gửi đơn", tone: "warning" as const };
+  return (
+    <div className="grid gap-1.5 text-[12.5px]">
+      <Badge tone={meta.tone} className="justify-self-start">
+        {meta.label}
+      </Badge>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
+        <dt className="text-muted-foreground">Khả dụng</dt>
+        <dd className="font-mono">{money(balance.available, balance.currency)}</dd>
+        <dt className="text-muted-foreground">Tạm giữ</dt>
+        <dd className="font-mono">{money(balance.pending, balance.currency)}</dd>
+        <dt className="text-muted-foreground">Tối thiểu để gửi đơn</dt>
+        <dd className="font-mono">
+          {balance.minimum === null ? "lớn hơn 0" : money(balance.minimum, balance.currency)}
+        </dd>
+      </dl>
     </div>
   );
 }

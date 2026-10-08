@@ -8,6 +8,7 @@ import type {
   SupplierPackage,
 } from '@modules/provider-adapter/domain/provider-adapter.port';
 import type { OrderExtraField } from '@modules/provider-adapter/domain/order-fields';
+import type { BalanceView } from '@modules/provider-adapter/application/integration-call.service';
 import { HttpResult } from '@modules/provider-adapter/infrastructure/http/http-json.client';
 import type { IntegrationSpec } from '@modules/provider-adapter/infrastructure/adapters/http-config/http-config.types';
 import {
@@ -29,12 +30,16 @@ import {
   readToken,
   requestScope,
   summarizeOrder,
+  UnknownHostError,
+  checkTarget,
+  readBalance,
 } from '@modules/provider-adapter/infrastructure/adapters/http-config/http-config.engine';
 
 export const PREVIEW_KINDS = [
   'LOGIN',
   'PACKAGES',
   'CHECK',
+  'BALANCE',
   'SUBMIT',
   'QUERY',
   'ORDERS',
@@ -84,6 +89,7 @@ export interface PreviewOutput {
     reason: { code: string; message: string } | null;
   };
   orders?: SupplierOrderSummary[];
+  balance?: BalanceView;
 }
 
 const SAMPLE_TRANS_CODE = '0192a7b3-c4d5-7e8f-9a0b-1c2d3e4f5a6b';
@@ -130,7 +136,14 @@ function sampleExtra(
   return Object.fromEntries(
     spec.extraFields.map((field) => [
       field.key,
-      provided[field.key] ?? SAMPLE_EXTRA[field.type](today),
+      provided[field.key] ??
+        (field.options.length > 0 &&
+        field.type !== 'NUMBER' &&
+        field.type !== 'DATE'
+          ? field.type === 'TEXT_LIST'
+            ? [field.options[0]]
+            : field.options[0]
+          : SAMPLE_EXTRA[field.type](today)),
     ]),
   );
 }
@@ -173,6 +186,7 @@ export class IntegrationPreviewService {
         LOGIN: spec.token.request,
         PACKAGES: spec.packages.request,
         CHECK: spec.check.request,
+        BALANCE: spec.balance.request,
         SUBMIT: spec.submit.request,
         QUERY: queryByOrders ? spec.orders.request : spec.query.request,
         ORDERS: spec.orders.request,
@@ -185,6 +199,7 @@ export class IntegrationPreviewService {
               LOGIN: 'login',
               PACKAGES: 'packages',
               CHECK: 'check',
+              BALANCE: 'balance',
               SUBMIT: 'submit',
               QUERY: 'query',
               ORDERS: 'orders',
@@ -215,11 +230,15 @@ export class IntegrationPreviewService {
           signedPayload: built.signedPayload ?? null,
           signatureRule: built.signatureRule ?? null,
         };
-      } catch {
+      } catch (error) {
         return {
           ...empty,
           warnings,
-          issues: ['Địa chỉ API (Base URL) hoặc đường dẫn không hợp lệ'],
+          issues: [
+            error instanceof UnknownHostError
+              ? error.message
+              : 'Địa chỉ API (Base URL) hoặc đường dẫn không hợp lệ',
+          ],
         };
       }
     }
@@ -296,7 +315,7 @@ export class IntegrationPreviewService {
       };
     }
     if (input.kind === 'CHECK') {
-      const reading = readCheck(spec, res);
+      const reading = readCheck(spec, res, checkTarget(params, order));
       return {
         issues: [],
         warnings,
@@ -311,6 +330,30 @@ export class IntegrationPreviewService {
         ),
         explain: reading.explain,
         check: { eligible: reading.eligible, reason: reading.reason },
+      };
+    }
+    if (input.kind === 'BALANCE') {
+      const reading = readBalance(params, res, order);
+      return {
+        issues: [],
+        warnings,
+        request,
+        result: plain(
+          reading.sufficient === true
+            ? 'SUFFICIENT'
+            : reading.sufficient === false
+              ? 'INSUFFICIENT'
+              : 'UNKNOWN',
+          reading.ok ? null : reading.message,
+        ),
+        explain: reading.message,
+        balance: {
+          available: reading.available,
+          pending: reading.pending,
+          currency: reading.currency,
+          minimum: reading.minimum,
+          sufficient: reading.sufficient,
+        },
       };
     }
     if (input.kind === 'ORDERS') {

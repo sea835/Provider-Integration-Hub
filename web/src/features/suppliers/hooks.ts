@@ -10,6 +10,7 @@ import {
   fetchOrderEvents,
   fetchOrders,
   fetchSupplier,
+  fetchSupplierBalance,
   fetchSuppliers,
   lookupOrder,
   recheckOrder,
@@ -135,5 +136,14 @@ export function useRecheckOrder() {
   return useMutation({
     mutationFn: (transCode: string) => recheckOrder(transCode),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.orders.all }),
+  });
+}
+
+export function useSupplierBalance(id: string) {
+  return useQuery({
+    queryKey: queryKeys.suppliers.balance(id),
+    queryFn: ({ signal }) => fetchSupplierBalance(id, signal),
+    staleTime: 60_000,
+    retry: false,
   });
 }

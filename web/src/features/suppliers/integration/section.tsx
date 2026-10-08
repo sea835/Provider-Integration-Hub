@@ -16,14 +16,14 @@ export const INTEGRATION_TABS = [
     id: "connection",
     label: "Kết nối chung",
     description: "Dùng chung cho mọi lời gọi: biến, bí mật, cách xác thực, đăng nhập lấy token, chữ ký.",
-    sections: ["secrets", "auth", "token", "signature", "actions"],
+    sections: ["hosts", "secrets", "auth", "token", "signature", "actions"],
   },
   {
     id: "api",
     label: "Các API",
     description:
       "Luồng đủ: 1 danh sách gói → 2 kiểm tra gói → 3 đăng ký gói → 4 kiểm tra trạng thái → 5 danh sách đơn. API 1, 2, 5 không bắt buộc; API chỉ đọc gọi thử được ngay tại đây.",
-    sections: ["packagesApi", "checkApi", "submitApi", "queryApi", "ordersApi", "testApi", "callbackApi"],
+    sections: ["packagesApi", "checkApi", "balanceApi", "submitApi", "queryApi", "ordersApi", "testApi", "callbackApi"],
   },
   {
     id: "status",
@@ -34,6 +34,7 @@ export const INTEGRATION_TABS = [
       "orderStatus",
       "packagesResult",
       "checkResult",
+      "balanceResult",
       "submitResult",
       "queryResult",
       "ordersResult",
@@ -53,7 +54,10 @@ export function tabOfSection(id: SectionId): IntegrationTabId {
 }
 
 const PROBLEM_SECTIONS: Array<[RegExp, SectionId]> = [
+  [/spec\.hosts|địa chỉ gốc/i, "hosts"],
   [/spec\.extraFields|order\.extra/i, "actions"],
+  [/spec\.balance\.request|Số dư: chưa nhập đường dẫn/i, "balanceApi"],
+  [/spec\.balance|Số dư/i, "balanceResult"],
   [/spec\.token|Đăng nhập lấy token|\{\{token\}\}/i, "token"],
   [/spec\.signature|Chữ ký/i, "signature"],
   [/spec\.packages\.request|Danh sách gói: chưa nhập đường dẫn/i, "packagesApi"],
@@ -83,8 +87,8 @@ export function sectionDomId(id: SectionId): string {
   return `integration-section-${id}`;
 }
 
-export function requestSummary(request: { method: string; path: string }): string {
-  return `${request.method} ${request.path || "(chưa có đường dẫn)"}`;
+export function requestSummary(request: { method: string; path: string; host?: string }): string {
+  return `${request.method} ${request.host ? `[${request.host}] ` : ""}${request.path || "(chưa có đường dẫn)"}`;
 }
 
 const storeListeners = new Map<string, Set<() => void>>();

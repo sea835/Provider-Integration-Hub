@@ -209,6 +209,78 @@ describe('Processors', () => {
     });
   });
 
+  describe('SubmitProcessor: kiểm tra số dư trước khi gửi', () => {
+    let checkBalance: jest.Mock;
+    const balance = (sufficient: boolean | null) => ({
+      ok: sufficient !== null,
+      available: sufficient ? 5000000 : 50000,
+      pending: 0,
+      currency: 'VND',
+      minimum: 100000,
+      sufficient,
+      message:
+        sufficient === false
+          ? 'Số dư khả dụng 50.000 VND, không đủ (cần tối thiểu 100.000 VND)'
+          : 'x',
+      trace: { durationMs: 3 },
+    });
+
+    beforeEach(() => {
+      checkBalance = jest.fn(() => Promise.resolve(balance(false)));
+      Object.assign(adapter, {
+        checkBalance,
+        features: () => ({
+          packages: false,
+          check: false,
+          checkBeforeSubmit: false,
+          orderList: false,
+          balance: true,
+          balanceBeforeSubmit: true,
+        }),
+      });
+    });
+
+    it('số dư không đủ → FAILED INSUFFICIENT_BALANCE, không gửi đơn', async () => {
+      current = order({ status: TransactionStatus.PENDING, submitCount: 0 });
+      await submit.handle('TX1');
+      expect(checkBalance).toHaveBeenCalledTimes(1);
+      expect(adapter.submit).not.toHaveBeenCalled();
+      expect(state.applyResult).toHaveBeenCalledWith(
+        'TX1',
+        expect.objectContaining({
+          outcome: 'FAILED',
+          error: {
+            code: 'INSUFFICIENT_BALANCE',
+            message:
+              'Số dư khả dụng 50.000 VND, không đủ (cần tối thiểu 100.000 VND)',
+          },
+        }),
+        'SUBMIT',
+      );
+    });
+
+    it('đủ số dư, hoặc chưa rõ, hoặc API số dư lỗi → vẫn gửi đơn', async () => {
+      for (const next of [
+        () => Promise.resolve(balance(true)),
+        () => Promise.resolve(balance(null)),
+        () => Promise.reject(new Error('mất kết nối')),
+      ]) {
+        checkBalance.mockImplementationOnce(next);
+        adapter.submit.mockClear();
+        current = order({ status: TransactionStatus.PENDING, submitCount: 0 });
+        await submit.handle('TX1');
+        expect(adapter.submit).toHaveBeenCalledTimes(1);
+      }
+    });
+
+    it('lần gửi lại (NCC không thấy đơn) → không kiểm tra số dư nữa', async () => {
+      current = order({ submitCount: 1, resubmitRequested: true });
+      await submit.handle('TX1');
+      expect(checkBalance).not.toHaveBeenCalled();
+      expect(adapter.submit).toHaveBeenCalled();
+    });
+  });
+
   describe('SubmitProcessor', () => {
     it('PENDING từ NCC → hẹn CHECK đầu tiên theo pollScheduleSec[0]', async () => {
       current = order({ status: TransactionStatus.PENDING, submitCount: 0 });

@@ -1,11 +1,10 @@
 "use client";
 
-import { Activity, KeySquare, PlugZap, ShieldCheck, Users } from "lucide-react";
+import { Activity, KeySquare, ShieldCheck, Users } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { StatTile } from "@/components/ui/stat-tile";
 import { usePermissions, useRoles } from "@/features/access/hooks";
 import { usePermission, useSession } from "@/features/auth/session-provider";
-import { useOrders, useSuppliers } from "@/features/suppliers/hooks";
 import { HEALTH_COPY, useHealth } from "@/features/system/use-health";
 import { ACTIVE_STATUS, roleMeta } from "@/features/users/constants";
 import { useUsers } from "@/features/users/hooks";
@@ -15,23 +14,17 @@ import { ActivityCard } from "./activity-card";
 import { HealthCard } from "./health-card";
 import { MyPermissionsCard } from "./my-permissions-card";
 import { RoleDistributionCard } from "./role-distribution-card";
-import { SupplierOverviewCard } from "./supplier-overview-card";
 
 export function DashboardView() {
   const { user } = useSession();
-  const canViewProviders = usePermission(POLICIES.suppliers.manage);
-  const canViewOrders = usePermission(POLICIES.orders.manage);
   const canViewUsers = usePermission(POLICIES.users.view);
   const canManageAccess = usePermission(POLICIES.access.manage);
 
   const health = useHealth();
-  const providers = useSuppliers(canViewProviders);
-  const activity = useOrders({ limit: 10 }, canViewOrders);
   const users = useUsers(canViewUsers);
   const roles = useRoles(canManageAccess);
   const permissions = usePermissions(canManageAccess);
 
-  const providerList = providers.data ?? [];
   const userList = users.data ?? [];
   const healthCopy = health.data ? HEALTH_COPY[health.data.level] : null;
   const healthTone = healthCopy?.tone ?? "neutral";
@@ -41,7 +34,7 @@ export function DashboardView() {
     <div className="space-y-6">
       <PageHeader
         title="Tổng quan hệ thống"
-        description={`Xin chào ${user.email}. Đây là tình trạng hiện tại của các tích hợp và tài khoản trong phạm vi quyền ${role.label.toLowerCase()} của bạn.`}
+        description={`Xin chào ${user.email}. Đây là tình trạng hiện tại của hệ thống và tài khoản trong phạm vi quyền ${role.label.toLowerCase()} của bạn.`}
       />
 
       <section aria-label="Chỉ số chính" className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
@@ -54,17 +47,6 @@ export function DashboardView() {
           className="[&>p]:text-xl [&>p]:leading-tight"
           hint={health.data?.database ? `Database phản hồi ${health.data.database.latencyMs} ms` : "Đang chờ phản hồi"}
         />
-        {canViewProviders ? (
-          <StatTile
-            label="Nhà cung cấp"
-            value={formatNumber(providerList.length)}
-            icon={PlugZap}
-            loading={providers.isPending}
-            hint={`${formatNumber(providerList.filter((item) => item.status === "ACTIVE").length)} đang chạy · ${formatNumber(
-              providerList.filter((item) => item.status === "PAUSED").length,
-            )} tạm dừng`}
-          />
-        ) : null}
         {canViewUsers ? (
           <StatTile
             label="Người dùng"
@@ -98,30 +80,13 @@ export function DashboardView() {
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]">
         <HealthCard />
-        {canViewProviders ? (
-          <SupplierOverviewCard
-            suppliers={providers.data}
-            isPending={providers.isPending}
-            error={providers.error}
-            onRetry={() => void providers.refetch()}
-          />
-        ) : (
-          <MyPermissionsCard />
-        )}
+        <MyPermissionsCard />
       </div>
 
-      {canViewProviders || canViewUsers ? (
+      {canViewUsers ? (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
-          <ActivityCard
-            orders={canViewOrders ? activity.data?.data : []}
-            suppliers={providers.data}
-            users={canViewUsers ? users.data : []}
-            isPending={(canViewOrders && activity.isPending) || (canViewUsers && users.isPending)}
-          />
-          <div className="space-y-6">
-            {canViewUsers ? <RoleDistributionCard users={users.data} isPending={users.isPending} /> : null}
-            {canViewProviders ? <MyPermissionsCard /> : null}
-          </div>
+          <ActivityCard users={users.data} isPending={users.isPending} />
+          <RoleDistributionCard users={users.data} isPending={users.isPending} />
         </div>
       ) : null}
     </div>

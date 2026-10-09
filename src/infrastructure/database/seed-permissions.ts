@@ -26,7 +26,7 @@ async function main() {
       {
         code: 'MANAGER',
         name: 'Quản lý nghiệp vụ',
-        description: 'Quản lý dữ liệu người dùng và nhà cung cấp',
+        description: 'Quản lý dữ liệu người dùng',
       },
       {
         code: 'USER',
@@ -71,26 +71,6 @@ async function main() {
         action: 'delete',
         subject: 'User',
         description: 'Xóa tài khoản người dùng',
-      },
-      {
-        action: 'read',
-        subject: 'Provider',
-        description: 'Xem thông tin nhà cung cấp',
-      },
-      {
-        action: 'create',
-        subject: 'Provider',
-        description: 'Thêm nhà cung cấp mới',
-      },
-      {
-        action: 'update',
-        subject: 'Provider',
-        description: 'Cập nhật nhà cung cấp',
-      },
-      {
-        action: 'delete',
-        subject: 'Provider',
-        description: 'Xóa nhà cung cấp',
       },
     ];
 
@@ -143,7 +123,7 @@ async function main() {
         (p) =>
           p.action !== 'manage' &&
           p.action !== 'delete' &&
-          (p.subject === 'User' || p.subject === 'Provider'),
+          p.subject === 'User',
       );
       for (const p of managerPerms) {
         const [existingMap] = await db

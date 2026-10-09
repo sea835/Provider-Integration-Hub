@@ -1,15 +1,12 @@
 "use client";
 
-import { History, Inbox, UserPlus, type LucideIcon } from "lucide-react";
+import { History, UserPlus, type LucideIcon } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/states";
-import { actionLabel } from "@/features/suppliers/constants";
-import { OrderStatusBadge } from "@/features/suppliers/supplier-visuals";
-import type { AdminOrder, Supplier } from "@/features/suppliers/types";
 import { roleMeta } from "@/features/users/constants";
 import type { User } from "@/lib/api/types";
 import { formatDateTime, formatRelative } from "@/lib/format";
@@ -21,51 +18,36 @@ interface ActivityItem {
   title: string;
   description: string;
   href?: Route;
-  order?: AdminOrder;
 }
 
 interface ActivityCardProps {
-  orders: AdminOrder[] | undefined;
-  suppliers: Supplier[] | undefined;
   users: User[] | undefined;
   isPending: boolean;
 }
 
-export function ActivityCard({ orders, suppliers, users, isPending }: ActivityCardProps) {
-  const items = useMemo(() => {
-    const supplierIds = new Map((suppliers ?? []).map((supplier) => [supplier.code, supplier.id]));
-    const fromOrders: ActivityItem[] = (orders ?? []).map((order) => {
-      const supplierId = supplierIds.get(order.supplierCode);
-      return {
-        id: `order-${order.id}`,
-        at: order.createdAt,
-        icon: Inbox,
-        title: `${actionLabel(order.action)} · ${order.supplierCode}`,
-        description: `${order.phone ?? order.serial ?? order.packageCode} · ${order.transCode}`,
-        href: supplierId ? (`/suppliers/${supplierId}?tab=orders` as Route) : undefined,
-        order,
-      };
-    });
-    const fromUsers: ActivityItem[] = [...(users ?? [])]
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-      .slice(0, 6)
-      .map((user) => ({
-        id: `user-${user.id}`,
-        at: user.createdAt,
-        icon: UserPlus,
-        title: "Tài khoản mới",
-        description: `${user.email} · ${roleMeta(user.role).label}`,
-        href: "/users",
-      }));
-    return [...fromOrders, ...fromUsers].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 10);
-  }, [orders, suppliers, users]);
+export function ActivityCard({ users, isPending }: ActivityCardProps) {
+  const items = useMemo<ActivityItem[]>(
+    () =>
+      [...(users ?? [])]
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .slice(0, 10)
+        .map((user) => ({
+          id: `user-${user.id}`,
+          at: user.createdAt,
+          icon: UserPlus,
+          title: "Tài khoản mới",
+          description: `${user.email} · ${roleMeta(user.role).label}`,
+          href: "/users",
+        })),
+    [users],
+  );
 
   return (
     <Card>
       <CardHeader>
         <div>
           <CardTitle>Hoạt động gần đây</CardTitle>
-          <CardDescription>Đơn hàng mới gửi tới nhà cung cấp và tài khoản mới.</CardDescription>
+          <CardDescription>Tài khoản mới được tạo gần đây.</CardDescription>
         </div>
       </CardHeader>
       <CardContent className="px-2 pb-3">
@@ -85,7 +67,7 @@ export function ActivityCard({ orders, suppliers, users, isPending }: ActivityCa
           <EmptyState
             icon={History}
             title="Chưa có hoạt động"
-            description="Đơn hàng và tài khoản mới sẽ xuất hiện tại đây."
+            description="Tài khoản mới sẽ xuất hiện tại đây."
             className="py-8"
           />
         ) : (
@@ -98,10 +80,7 @@ export function ActivityCard({ orders, suppliers, users, isPending }: ActivityCa
                     <Icon className="size-4 text-muted-foreground" />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="flex flex-wrap items-center gap-2">
-                      <span className="truncate text-sm font-medium">{item.title}</span>
-                      {item.order ? <OrderStatusBadge status={item.order.status} /> : null}
-                    </span>
+                    <span className="block truncate text-sm font-medium">{item.title}</span>
                     <span className="mt-0.5 block truncate text-[13px] text-muted-foreground" title={item.description}>
                       {item.description}
                     </span>

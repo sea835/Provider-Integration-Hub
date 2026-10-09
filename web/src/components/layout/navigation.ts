@@ -1,11 +1,12 @@
-import { LayoutDashboard, ShieldCheck, Users, type LucideIcon } from "lucide-react";
+import type { Icon as IconType } from "@phosphor-icons/react";
+import { ShieldCheck, SquaresFour, Users } from "@phosphor-icons/react/ssr";
 import type { Route } from "next";
 import { POLICIES, type Policy } from "@/lib/auth/policies";
 
 export interface NavItem {
   href: Route;
   label: string;
-  icon: LucideIcon;
+  icon: IconType;
   policy?: Policy;
 }
 
@@ -17,7 +18,7 @@ export interface NavSection {
 export const NAV_SECTIONS: NavSection[] = [
   {
     title: "Tổng quan",
-    items: [{ href: "/", label: "Bảng điều khiển", icon: LayoutDashboard }],
+    items: [{ href: "/", label: "Bảng điều khiển", icon: SquaresFour }],
   },
   {
     title: "Quản trị",
@@ -32,8 +33,3 @@ export function isActivePath(pathname: string, href: string): boolean {
   if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(`${href}/`);
 }
-
-export const ROUTE_LABELS: Record<string, string> = {
-  users: "Người dùng",
-  access: "Phân quyền",
-};

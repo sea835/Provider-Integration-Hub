@@ -1,25 +1,42 @@
 "use client";
 
-import { Moon, Sun } from "lucide-react";
+import { Desktop, Moon, Sun } from "@phosphor-icons/react/ssr";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
-import { Hint } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
-const LABEL = "Đổi giao diện sáng / tối";
+const OPTIONS = [
+  { value: "light", label: "Sáng", icon: Sun },
+  { value: "dark", label: "Tối", icon: Moon },
+  { value: "system", label: "Theo hệ thống", icon: Desktop },
+] as const;
 
 export function ThemeToggle() {
-  const { resolvedTheme, setTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   return (
-    <Hint label={LABEL} side="bottom">
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-        aria-label={LABEL}
-      >
-        <Sun className="hidden dark:block" aria-hidden />
-        <Moon className="block dark:hidden" aria-hidden />
-      </Button>
-    </Hint>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" aria-label="Chọn giao diện">
+          <Sun className="block dark:hidden" aria-hidden />
+          <Moon className="hidden dark:block" aria-hidden />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-40">
+        <DropdownMenuRadioGroup value={theme ?? "system"} onValueChange={setTheme}>
+          {OPTIONS.map(({ value, label, icon: Icon }) => (
+            <DropdownMenuRadioItem key={value} value={value}>
+              <Icon aria-hidden />
+              {label}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

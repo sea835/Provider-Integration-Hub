@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Wand2 } from "lucide-react";
+import { MagicWand } from "@phosphor-icons/react/ssr";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -103,7 +103,7 @@ export function CreateUserDialog({ open, onOpenChange }: { open: boolean; onOpen
                   variant="outline"
                   onClick={() => form.setValue("password", generatePassword(), { shouldValidate: true })}
                 >
-                  <Wand2 aria-hidden />
+                  <MagicWand aria-hidden />
                   Tạo ngẫu nhiên
                 </Button>
               </div>

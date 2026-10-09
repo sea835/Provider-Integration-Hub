@@ -45,7 +45,7 @@ function AppToaster() {
       duration={4500}
       offset={{ top: 76, right: 20 }}
       mobileOffset={{ top: 72, left: 12, right: 12 }}
-      toastOptions={{ classNames: { toast: "font-sans !rounded-xl !shadow-lift" } }}
+      toastOptions={{ classNames: { toast: "font-sans !rounded-lg !border-0 !shadow-lift" } }}
     />
   );
 }

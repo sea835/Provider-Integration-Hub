@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronsUpDown, LogOut } from "lucide-react";
+import { CaretUpDown, SignOut } from "@phosphor-icons/react/ssr";
 import { useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -24,15 +24,15 @@ export function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className="flex h-10 items-center gap-2.5 rounded-lg px-1.5 text-left transition-colors hover:bg-accent data-[state=open]:bg-accent sm:pr-2.5"
+        className="flex h-9 items-center gap-2 rounded-md px-1 text-left transition-colors duration-200 hover:bg-accent data-[state=open]:bg-accent sm:pr-2"
         aria-label="Tài khoản của bạn"
       >
-        <Avatar name={user.email} />
+        <Avatar name={user.email} className="size-7" />
         <span className="hidden min-w-0 flex-col md:flex">
           <span className="max-w-44 truncate text-[13px] leading-tight font-medium">{user.email}</span>
           <span className="text-[11px] leading-tight text-muted-foreground">{role.label}</span>
         </span>
-        <ChevronsUpDown className="hidden size-3.5 text-muted-foreground md:block" aria-hidden />
+        <CaretUpDown className="hidden size-3.5 text-muted-foreground md:block" aria-hidden />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
         <DropdownMenuLabel className="flex items-center gap-3 py-2">
@@ -52,8 +52,8 @@ export function UserMenu() {
             void signOutAndRedirect("signed-out");
           }}
         >
-          <LogOut aria-hidden />
-          {signingOut ? "Đang đăng xuất…" : "Đăng xuất"}
+          <SignOut aria-hidden />
+          {signingOut ? "Đang đăng xuất..." : "Đăng xuất"}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

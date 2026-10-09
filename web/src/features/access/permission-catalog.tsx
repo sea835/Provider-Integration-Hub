@@ -1,6 +1,6 @@
 "use client";
 
-import { KeySquare, Plus, Search, Trash2 } from "lucide-react";
+import { ListChecks, MagnifyingGlass, Trash } from "@phosphor-icons/react/ssr";
 import { useDeferredValue, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -27,7 +27,7 @@ const ACTION_TONES: Record<string, "primary" | "success" | "info" | "warning" | 
   delete: "danger",
 };
 
-export function PermissionCatalog({ onCreate }: { onCreate: () => void }) {
+export function PermissionCatalog() {
   const { data: permissions, isPending, isError, error, refetch } = usePermissions();
   const deletePermission = useDeletePermission();
   const [search, setSearch] = useState("");
@@ -60,10 +60,10 @@ export function PermissionCatalog({ onCreate }: { onCreate: () => void }) {
   }, [permissions, term]);
 
   return (
-    <Card className="overflow-hidden">
-      <div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center">
+    <Card tone="plain">
+      <div className="flex flex-col gap-2 pb-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
-          <Search
+          <MagnifyingGlass
             className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
             aria-hidden
           />
@@ -76,10 +76,6 @@ export function PermissionCatalog({ onCreate }: { onCreate: () => void }) {
             className="pl-9"
           />
         </div>
-        <Button variant="outline" onClick={onCreate}>
-          <Plus aria-hidden />
-          Tạo quyền hạn
-        </Button>
       </div>
 
       {isPending ? (
@@ -92,7 +88,7 @@ export function PermissionCatalog({ onCreate }: { onCreate: () => void }) {
         <ErrorState error={error} onRetry={() => void refetch()} />
       ) : rows.length === 0 ? (
         <EmptyState
-          icon={KeySquare}
+          icon={ListChecks}
           title="Không có quyền hạn phù hợp"
           description="Thử từ khóa khác hoặc tạo quyền hạn mới."
         />
@@ -127,15 +123,15 @@ export function PermissionCatalog({ onCreate }: { onCreate: () => void }) {
                   </TableCell>
                   <TableCell>
                     {permission.conditions ? (
-                      <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[12px]">
+                      <code className="rounded-sm bg-muted px-1.5 py-0.5 font-mono text-[12px]">
                         {JSON.stringify(permission.conditions)}
                       </code>
                     ) : (
-                      <span className="text-muted-foreground">—</span>
+                      <span className="text-muted-foreground">-</span>
                     )}
                   </TableCell>
                   <TableCell className="max-w-72 text-muted-foreground">
-                    <span className="line-clamp-2">{permission.description || "—"}</span>
+                    <span className="line-clamp-2">{permission.description || "-"}</span>
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-muted-foreground">
                     {formatDate(permission.createdAt)}
@@ -150,7 +146,7 @@ export function PermissionCatalog({ onCreate }: { onCreate: () => void }) {
                           onClick={() => setTarget(permission)}
                           aria-label={`Xóa quyền ${permission.action} · ${permission.subject}`}
                         >
-                          <Trash2 aria-hidden />
+                          <Trash aria-hidden />
                         </Button>
                       </span>
                     </Hint>

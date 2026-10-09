@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, ArrowRight, CheckCircle2, Info } from "lucide-react";
+import { ArrowRight, CheckCircle, Info, WarningCircle } from "@phosphor-icons/react/ssr";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
@@ -29,7 +29,7 @@ function deadlineAfter(seconds: number): number {
 
 const REASON_NOTICE = {
   expired: { icon: Info, tone: "info", text: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để tiếp tục." },
-  "signed-out": { icon: CheckCircle2, tone: "success", text: "Bạn đã đăng xuất an toàn." },
+  "signed-out": { icon: CheckCircle, tone: "success", text: "Bạn đã đăng xuất an toàn." },
 } as const;
 
 function useCountdown(until: number | null): number {
@@ -98,12 +98,12 @@ export function LoginForm({ next, reason }: { next: string; reason: "expired" | 
   const throttled = secondsLeft > 0;
 
   return (
-    <form onSubmit={onSubmit} noValidate className="space-y-5">
+    <form onSubmit={onSubmit} noValidate className="space-y-4">
       {notice ? (
         <div
           role="status"
           className={cn(
-            "flex items-start gap-2.5 rounded-lg px-3.5 py-3 text-[13px] leading-relaxed",
+            "flex items-start gap-2.5 rounded-md px-3 py-2.5 text-[13px] leading-relaxed",
             notice.tone === "info" ? "bg-info-soft text-info" : "bg-success-soft text-success",
           )}
         >
@@ -116,9 +116,9 @@ export function LoginForm({ next, reason }: { next: string; reason: "expired" | 
         {serverError ? (
           <div
             role="alert"
-            className="flex items-start gap-2.5 rounded-lg bg-danger-soft px-3.5 py-3 text-[13px] leading-relaxed text-danger"
+            className="flex items-start gap-2.5 rounded-md bg-danger-soft px-3 py-2.5 text-[13px] leading-relaxed text-danger"
           >
-            <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden />
+            <WarningCircle className="mt-0.5 size-4 shrink-0" aria-hidden />
             <span>{serverError}</span>
           </div>
         ) : null}
@@ -135,7 +135,7 @@ export function LoginForm({ next, reason }: { next: string; reason: "expired" | 
           spellCheck={false}
           autoFocus
           placeholder="ban@congty.vn"
-          className="h-11"
+          className="h-10"
         />
       </Field>
 
@@ -145,12 +145,12 @@ export function LoginForm({ next, reason }: { next: string; reason: "expired" | 
           {...register("password")}
           autoComplete="current-password"
           placeholder="••••••••"
-          className="h-11"
+          className="h-10"
         />
       </Field>
 
-      <Button type="submit" size="lg" className="w-full" isLoading={busy} disabled={throttled}>
-        {throttled ? `Thử lại sau ${secondsLeft} giây` : busy ? "Đang đăng nhập…" : "Đăng nhập"}
+      <Button type="submit" size="lg" className="mt-2 w-full" isLoading={busy} disabled={throttled}>
+        {throttled ? `Thử lại sau ${secondsLeft} giây` : busy ? "Đang đăng nhập..." : "Đăng nhập"}
         {!busy && !throttled ? <ArrowRight aria-hidden /> : null}
       </Button>
     </form>

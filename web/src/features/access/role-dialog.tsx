@@ -133,7 +133,7 @@ export function RoleDialog({ role, onClose, onCreated }: RoleDialogProps) {
                 render={({ field }) => (
                   <label
                     htmlFor="role-active"
-                    className="flex items-center justify-between gap-4 rounded-lg border p-3"
+                    className="flex items-center justify-between gap-4 rounded-md bg-subtle p-3"
                   >
                     <span className="space-y-0.5">
                       <span className="block text-sm font-medium">Đang hoạt động</span>

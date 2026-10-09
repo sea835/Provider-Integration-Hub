@@ -1,6 +1,6 @@
 "use client";
 
-import { Database, RefreshCw, Server, Timer } from "lucide-react";
+import { ArrowClockwise, Database, HardDrives, Timer } from "@phosphor-icons/react/ssr";
 import type { ReactNode } from "react";
 import { StatusDot } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,14 +17,14 @@ function Row({
   value,
   tone,
 }: {
-  icon: typeof Server;
+  icon: typeof HardDrives;
   label: string;
   value: ReactNode;
   tone: "success" | "danger" | "neutral";
 }) {
   return (
-    <div className="flex items-center gap-3 py-3">
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted" aria-hidden>
+    <div className="flex items-center gap-3 py-2">
+      <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-background" aria-hidden>
         <Icon className="size-4 text-muted-foreground" />
       </span>
       <p className="flex-1 text-sm">{label}</p>
@@ -45,7 +45,7 @@ export function HealthCard() {
       <CardHeader>
         <div>
           <CardTitle>Sức khỏe hệ thống</CardTitle>
-          <CardDescription>Tự động kiểm tra mỗi 30 giây qua /health/live và /health/ready.</CardDescription>
+          <CardDescription>Tự động kiểm tra mỗi 30 giây.</CardDescription>
         </div>
         <Hint label="Kiểm tra ngay">
           <Button
@@ -54,7 +54,7 @@ export function HealthCard() {
             onClick={() => void refetch()}
             aria-label="Kiểm tra sức khỏe hệ thống ngay"
           >
-            <RefreshCw className={cn(isFetching && "animate-spin")} aria-hidden />
+            <ArrowClockwise className={cn(isFetching && "animate-spin")} aria-hidden />
           </Button>
         </Hint>
       </CardHeader>
@@ -70,7 +70,7 @@ export function HealthCard() {
             <div
               role="status"
               className={cn(
-                "flex items-center gap-3 rounded-lg px-4 py-3",
+                "flex items-center gap-3 rounded-md px-3 py-2.5",
                 copy.tone === "success"
                   ? "bg-success-soft"
                   : copy.tone === "warning"
@@ -84,16 +84,16 @@ export function HealthCard() {
                 <p className="text-xs text-muted-foreground">Cập nhật {formatRelative(dataUpdatedAt)}</p>
               </div>
             </div>
-            <div className="mt-2 divide-y">
+            <div className="mt-2">
               <Row
-                icon={Server}
-                label="API (liveness)"
+                icon={HardDrives}
+                label="API"
                 tone={data.uptimeSeconds !== null ? "success" : "danger"}
                 value={data.uptimeSeconds !== null ? `Chạy ${formatUptime(data.uptimeSeconds)}` : "Không phản hồi"}
               />
               <Row
                 icon={Database}
-                label="Database (readiness)"
+                label="Database"
                 tone={data.database?.status === "up" ? "success" : "danger"}
                 value={
                   data.database
@@ -101,7 +101,7 @@ export function HealthCard() {
                     : "Không xác định"
                 }
               />
-              <Row icon={Timer} label="Độ trễ khứ hồi" tone="neutral" value={`${data.roundTripMs} ms`} />
+              <Row icon={Timer} label="Độ trễ" tone="neutral" value={`${data.roundTripMs} ms`} />
             </div>
           </>
         )}

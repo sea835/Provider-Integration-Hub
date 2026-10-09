@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight } from "lucide-react";
+import { ArrowRight } from "@phosphor-icons/react/ssr";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -54,7 +54,7 @@ export function RoleDistributionCard({ users, isPending }: { users: User[] | und
             <tbody>
               {rows.map((row) => (
                 <tr key={row.key}>
-                  <th scope="row" className="w-32 py-2 pr-3 text-left font-normal text-muted-foreground">
+                  <th scope="row" className="w-24 py-2 pr-3 text-left font-normal text-muted-foreground">
                     {row.label}
                   </th>
                   <td className="py-2">
@@ -62,7 +62,7 @@ export function RoleDistributionCard({ users, isPending }: { users: User[] | und
                       <Hint label={`${row.label}: ${formatNumber(row.count)} người dùng`}>
                         <span className="flex h-6 flex-1 items-center">
                           <span
-                            className="h-2.5 min-w-0.5 rounded-r-[4px] bg-chart-accent transition-[filter] hover:brightness-110"
+                            className="h-2 min-w-0.5 rounded-[2px] bg-chart-accent transition-[filter] hover:brightness-110"
                             style={{ width: `${(row.count / max) * 100}%` }}
                           />
                         </span>

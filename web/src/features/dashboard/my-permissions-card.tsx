@@ -1,6 +1,6 @@
 "use client";
 
-import { Ban, Braces, KeyRound } from "lucide-react";
+import { BracketsCurly, Key, Prohibit } from "@phosphor-icons/react/ssr";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAppAbility, useSession } from "@/features/auth/session-provider";
@@ -38,7 +38,7 @@ export function MyPermissionsCard() {
             quyền.
           </CardDescription>
         </div>
-        <KeyRound className="size-4 text-muted-foreground" aria-hidden />
+        <Key className="size-4 text-muted-foreground" aria-hidden />
       </CardHeader>
       <CardContent>
         {entries.length === 0 ? (
@@ -51,12 +51,12 @@ export function MyPermissionsCard() {
                   tone={entry.inverted ? "danger" : entry.action === "manage" ? "primary" : "outline"}
                   className="py-1"
                 >
-                  {entry.inverted ? <Ban aria-hidden /> : null}
+                  {entry.inverted ? <Prohibit aria-hidden /> : null}
                   {entry.inverted ? "Không được " : ""}
                   {actionLabel(entry.action).toLowerCase()} · {subjectLabel(entry.subject)}
                   {entry.conditional ? (
                     <span className="inline-flex items-center gap-1 text-muted-foreground">
-                      <Braces aria-hidden />
+                      <BracketsCurly aria-hidden />
                       có điều kiện
                     </span>
                   ) : null}

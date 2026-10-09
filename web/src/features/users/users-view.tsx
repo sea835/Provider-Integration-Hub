@@ -1,9 +1,9 @@
 "use client";
 
-import { Lock, RefreshCw, Search, ShieldCheck, UserCheck, UserPlus, Users, X } from "lucide-react";
+import { ArrowClockwise, MagnifyingGlass, UserPlus, Users, X } from "@phosphor-icons/react/ssr";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useDeferredValue, useMemo, useState } from "react";
-import { PageHeader } from "@/components/layout/page-header";
+import { PageBanner } from "@/components/layout/page-banner";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,10 +11,8 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { StatTile } from "@/components/ui/stat-tile";
 import { EmptyState, ErrorState } from "@/components/ui/states";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Hint } from "@/components/ui/tooltip";
 import { Can, useSession } from "@/features/auth/session-provider";
 import type { User } from "@/lib/api/types";
 import { POLICIES } from "@/lib/auth/policies";
@@ -68,26 +66,21 @@ function RoleBadge({ role }: { role: string }) {
 
 function StatusBadge({ status }: { status: string }) {
   const meta = statusMeta(status);
-  return (
-    <Badge tone={meta.tone}>
-      <span className="size-1.5 rounded-full bg-current" aria-hidden />
-      {meta.label}
-    </Badge>
-  );
+  return <Badge tone={meta.tone}>{meta.label}</Badge>;
 }
 
 function TableSkeleton() {
   return (
-    <div className="divide-y" aria-hidden>
+    <div aria-hidden>
       {Array.from({ length: 8 }, (_, index) => (
-        <div key={index} className="flex items-center gap-4 px-4 py-3.5">
-          <Skeleton className="size-8 rounded-full" />
+        <div key={index} className="flex items-center gap-4 px-4 py-3 even:bg-subtle/60">
+          <Skeleton className="size-8" />
           <div className="flex-1 space-y-2">
             <Skeleton className="h-3.5 w-52" />
             <Skeleton className="h-3 w-72 max-w-full" />
           </div>
-          <Skeleton className="hidden h-5 w-20 rounded-full md:block" />
-          <Skeleton className="hidden h-5 w-20 rounded-full md:block" />
+          <Skeleton className="hidden h-5 w-20 md:block" />
+          <Skeleton className="hidden h-5 w-20 md:block" />
           <Skeleton className="hidden h-3.5 w-24 lg:block" />
         </div>
       ))}
@@ -140,60 +133,36 @@ export function UsersView() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <PageBanner
+        eyebrow="Quản trị"
         title="Người dùng"
         description="Quản lý tài khoản, vai trò và trạng thái truy cập của thành viên trong hệ thống."
+        stats={[
+          { label: "Tổng", value: isPending ? "-" : formatNumber(stats.total) },
+          { label: "Hoạt động", value: isPending ? "-" : formatNumber(stats.active) },
+          { label: "Quản trị viên", value: isPending ? "-" : formatNumber(stats.admins) },
+          { label: "Bị khóa", value: isPending ? "-" : formatNumber(stats.locked) },
+        ]}
         actions={
           <>
-            <Hint label="Tải lại danh sách">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => void refetch()}
-                aria-label="Tải lại danh sách người dùng"
-              >
-                <RefreshCw className={cn(isFetching && "animate-spin")} aria-hidden />
-              </Button>
-            </Hint>
             <Can policy={POLICIES.users.create}>
-              <Button onClick={() => setCreateOpen(true)}>
+              <Button variant="inverse" size="sm" onClick={() => setCreateOpen(true)}>
                 <UserPlus aria-hidden />
                 Thêm người dùng
               </Button>
             </Can>
+            <Button variant="inverse-ghost" size="sm" onClick={() => void refetch()}>
+              <ArrowClockwise className={cn(isFetching && "animate-spin")} aria-hidden />
+              Tải lại
+            </Button>
           </>
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-        <StatTile label="Tổng người dùng" value={formatNumber(stats.total)} icon={Users} loading={isPending} />
-        <StatTile
-          label="Đang hoạt động"
-          value={formatNumber(stats.active)}
-          icon={UserCheck}
-          tone="success"
-          loading={isPending}
-        />
-        <StatTile
-          label="Quản trị viên"
-          value={formatNumber(stats.admins)}
-          icon={ShieldCheck}
-          tone="info"
-          loading={isPending}
-        />
-        <StatTile
-          label="Bị khóa / vô hiệu"
-          value={formatNumber(stats.locked)}
-          icon={Lock}
-          tone="danger"
-          loading={isPending}
-        />
-      </div>
-
-      <Card className="overflow-hidden">
-        <div className="flex flex-col gap-3 border-b p-4 lg:flex-row lg:items-center">
+      <Card tone="plain">
+        <div className="flex flex-col gap-2 pb-3 lg:flex-row lg:items-center">
           <div className="relative flex-1">
-            <Search
+            <MagnifyingGlass
               className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
               aria-hidden
             />
@@ -204,14 +173,14 @@ export function UsersView() {
                 setSearch(event.target.value);
                 update({ q: event.target.value, page: null });
               }}
-              placeholder="Tìm theo email hoặc mã người dùng…"
+              placeholder="Tìm theo email hoặc mã người dùng"
               aria-label="Tìm kiếm người dùng"
               className="pl-9"
               autoComplete="off"
               spellCheck={false}
             />
           </div>
-          <div className="grid grid-cols-2 gap-3 sm:flex">
+          <div className="grid grid-cols-2 gap-2 sm:flex">
             <Select value={roleFilter} onValueChange={(value) => update({ role: value, page: null })}>
               <SelectTrigger className="sm:w-44" aria-label="Lọc theo vai trò">
                 <SelectValue />
@@ -307,10 +276,10 @@ export function UsersView() {
                 </TableBody>
               </Table>
             </div>
-            <ul className="divide-y md:hidden">
+            <ul className="md:hidden">
               {visible.map((user) => (
-                <li key={user.id} className="flex items-start gap-3 px-4 py-4">
-                  <div className="min-w-0 flex-1 space-y-2.5">
+                <li key={user.id} className="flex items-start gap-3 px-4 py-3 even:bg-subtle/60">
+                  <div className="min-w-0 flex-1 space-y-2">
                     <UserIdentity user={user} isSelf={user.id === currentUser.id} />
                     <div className="flex flex-wrap items-center gap-2 pl-11">
                       <RoleBadge role={user.role} />
@@ -328,9 +297,9 @@ export function UsersView() {
         )}
 
         {!isPending && !isError && filtered.length > 0 ? (
-          <div className="flex flex-col items-center justify-between gap-3 border-t px-4 py-3 text-[13px] text-muted-foreground sm:flex-row">
+          <div className="flex flex-col items-center justify-between gap-3 pt-3 text-[13px] text-muted-foreground sm:flex-row">
             <p className="tabular-nums" aria-live="polite">
-              Hiển thị {formatNumber((page - 1) * PAGE_SIZE + 1)}–
+              Hiển thị {formatNumber((page - 1) * PAGE_SIZE + 1)}-
               {formatNumber(Math.min(page * PAGE_SIZE, filtered.length))} trên {formatNumber(filtered.length)} người
               dùng
             </p>

@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "bc15eaa2-f6f0-4100-b9d6-da912027b95e",
+  "id": "83af6244-9548-4d8b-9bca-0161e62ce9e2",
   "prevIds": [
-    "3ac72f9d-784b-450b-b22e-fb97d0f212ac"
+    "00000000-0000-0000-0000-000000000000"
   ],
   "ddl": [
     {
@@ -27,12 +27,6 @@
     {
       "isRlsEnabled": false,
       "name": "roles",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "transactions",
       "entityType": "tables",
       "schema": "public"
     },
@@ -521,253 +515,6 @@
       "name": "id",
       "entityType": "columns",
       "schema": "public",
-      "table": "transactions"
-    },
-    {
-      "type": "varchar(50)",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": "'ACTIVE'",
-      "generated": null,
-      "identity": null,
-      "name": "status",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "transactions"
-    },
-    {
-      "type": "timestamp",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "transactions"
-    },
-    {
-      "type": "timestamp",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "updated_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "transactions"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "created_by",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "transactions"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "updated_by",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "transactions"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "metadata",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "transactions"
-    },
-    {
-      "type": "varchar(20)",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "transCode",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "transactions"
-    },
-    {
-      "type": "varchar(20)",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "partnerTransId",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "transactions"
-    },
-    {
-      "type": "varchar(20)",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "supplierTransId",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "transactions"
-    },
-    {
-      "type": "varchar(20)",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "supplierId",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "transactions"
-    },
-    {
-      "type": "varchar(20)",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "variantId",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "transactions"
-    },
-    {
-      "type": "varchar(20)",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "action",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "transactions"
-    },
-    {
-      "type": "varchar(11)",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "targetPhone",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "transactions"
-    },
-    {
-      "type": "varchar(20)",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "serial",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "transactions"
-    },
-    {
-      "type": "numeric",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "amount",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "transactions"
-    },
-    {
-      "type": "numeric",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "costAmount",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "transactions"
-    },
-    {
-      "type": "varchar(10)",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "errorCode",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "transactions"
-    },
-    {
-      "type": "varchar(255)",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "errorMessage",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "transactions"
-    },
-    {
-      "type": "uuid",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
       "table": "users"
     },
     {
@@ -977,16 +724,6 @@
       "name": "roles_pkey",
       "schema": "public",
       "table": "roles",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "name": "transactions_pkey",
-      "schema": "public",
-      "table": "transactions",
       "entityType": "pks"
     },
     {

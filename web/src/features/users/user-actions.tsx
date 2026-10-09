@@ -1,6 +1,6 @@
 "use client";
 
-import { KeyRound, Lock, MoreHorizontal, Trash2, Unlock, UserCog } from "lucide-react";
+import { DotsThree, Key, Lock, LockOpen, Trash, UserGear } from "@phosphor-icons/react/ssr";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -67,7 +67,7 @@ export function UserActions({ user }: { user: User }) {
 
   const trigger = (
     <Button variant="ghost" size="icon-sm" aria-label={`Thao tác với ${user.email}`}>
-      <MoreHorizontal aria-hidden />
+      <DotsThree aria-hidden />
     </Button>
   );
 
@@ -83,7 +83,7 @@ export function UserActions({ user }: { user: User }) {
             <>
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger disabled={isSelf}>
-                  <UserCog aria-hidden />
+                  <UserGear aria-hidden />
                   Đổi vai trò
                 </DropdownMenuSubTrigger>
                 <DropdownMenuSubContent className="w-52">
@@ -102,11 +102,11 @@ export function UserActions({ user }: { user: User }) {
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
               <DropdownMenuItem onSelect={() => setPending({ type: "password" })}>
-                <KeyRound aria-hidden />
+                <Key aria-hidden />
                 Đặt lại mật khẩu
               </DropdownMenuItem>
               <DropdownMenuItem disabled={isSelf} onSelect={() => setPending({ type: "status" })}>
-                {isActive ? <Lock aria-hidden /> : <Unlock aria-hidden />}
+                {isActive ? <Lock aria-hidden /> : <LockOpen aria-hidden />}
                 {isActive ? "Khóa tài khoản" : "Kích hoạt tài khoản"}
               </DropdownMenuItem>
             </>
@@ -115,7 +115,7 @@ export function UserActions({ user }: { user: User }) {
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem tone="danger" disabled={isSelf} onSelect={() => setPending({ type: "delete" })}>
-                <Trash2 aria-hidden />
+                <Trash aria-hidden />
                 Xóa người dùng
               </DropdownMenuItem>
             </>

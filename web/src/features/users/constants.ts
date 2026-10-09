@@ -10,7 +10,7 @@ export const ROLE_META: Record<SystemRole, { label: string; description: string;
   MANAGER: {
     label: "Quản lý",
     description: "Quản lý nghiệp vụ theo bộ quyền được gán cho vai trò.",
-    tone: "info",
+    tone: "outline",
   },
   USER: {
     label: "Người dùng",

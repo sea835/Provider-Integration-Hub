@@ -41,7 +41,7 @@ const schema = z
       context.addIssue({
         code: "custom",
         path: ["customAction"],
-        message: "Hành động viết thường, 2–50 ký tự, không dấu cách",
+        message: "Hành động viết thường, 2-50 ký tự, không dấu cách",
       });
     }
     if (values.conditions) {
@@ -188,7 +188,7 @@ export function PermissionDialog({ onClose, onCreated, preset, knownSubjects }: 
               error={errors.conditions?.message}
               hint={
                 <>
-                  Dùng <code className="rounded bg-muted px-1 font-mono text-[12px]">{"${user.sub}"}</code> để tham
+                  Dùng <code className="rounded-sm bg-muted px-1 font-mono text-[12px]">{"${user.sub}"}</code> để tham
                   chiếu ID người dùng hiện tại.
                 </>
               }

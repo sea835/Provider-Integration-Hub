@@ -1,10 +1,19 @@
 "use client";
 
-import { AlertTriangle, Info, KeySquare, Pencil, Plus, ShieldCheck, Trash2, Undo2 } from "lucide-react";
+import {
+  ArrowCounterClockwise,
+  Info,
+  ListChecks,
+  PencilSimple,
+  Plus,
+  ShieldCheck,
+  Trash,
+  Warning,
+} from "@phosphor-icons/react/ssr";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { PageHeader } from "@/components/layout/page-header";
+import { PageBanner } from "@/components/layout/page-banner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -37,7 +46,7 @@ function Notice({ tone, icon: Icon, children }: { tone: "info" | "warning"; icon
   return (
     <div
       className={cn(
-        "flex items-start gap-2.5 rounded-lg px-3.5 py-3 text-[13px] leading-relaxed",
+        "flex items-start gap-2.5 rounded-md px-3 py-2.5 text-[13px] leading-relaxed",
         tone === "info" ? "bg-info-soft text-info" : "bg-warning-soft text-warning",
       )}
     >
@@ -159,18 +168,27 @@ export function AccessView() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <PageBanner
+        eyebrow="Quản trị"
         title="Phân quyền"
-        description="Quản lý vai trò, danh mục quyền hạn và gán quyền trực quan theo ma trận đối tượng × hành động."
+        description="Quản lý vai trò, danh mục quyền hạn và gán quyền theo ma trận đối tượng và hành động."
+        stats={[
+          { label: "Vai trò", value: rolesQuery.data ? roles.length : "-" },
+          { label: "Quyền hạn", value: permissionsQuery.data ? permissions.length : "-" },
+        ]}
         actions={
           <>
-            <Button variant="outline" onClick={() => setDialog({ type: "create-permission", autoSelect: false })}>
-              <KeySquare aria-hidden />
-              Tạo quyền hạn
-            </Button>
-            <Button onClick={() => setDialog({ type: "create-role" })}>
+            <Button variant="inverse" size="sm" onClick={() => setDialog({ type: "create-role" })}>
               <Plus aria-hidden />
               Tạo vai trò
+            </Button>
+            <Button
+              variant="inverse-ghost"
+              size="sm"
+              onClick={() => setDialog({ type: "create-permission", autoSelect: false })}
+            >
+              <ListChecks aria-hidden />
+              Tạo quyền hạn
             </Button>
           </>
         }
@@ -183,10 +201,10 @@ export function AccessView() {
             Vai trò & ma trận
           </TabsTrigger>
           <TabsTrigger value="catalog">
-            <KeySquare aria-hidden />
+            <ListChecks aria-hidden />
             Danh mục quyền hạn
             {permissionsQuery.data ? (
-              <span className="rounded-full bg-muted px-1.5 text-[11px] text-muted-foreground tabular-nums">
+              <span className="rounded-sm bg-muted px-1.5 text-[11px] text-muted-foreground tabular-nums">
                 {permissions.length}
               </span>
             ) : null}
@@ -195,9 +213,9 @@ export function AccessView() {
 
         <TabsContent value="roles">
           {isLoading ? (
-            <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
-              <Skeleton className="h-96 rounded-xl" />
-              <Skeleton className="h-[480px] rounded-xl" />
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
+              <Skeleton className="h-96 rounded-lg" />
+              <Skeleton className="h-[480px] rounded-lg" />
             </div>
           ) : loadError ? (
             <Card>
@@ -219,7 +237,7 @@ export function AccessView() {
               />
             </Card>
           ) : (
-            <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
               <div className="lg:hidden">
                 <Select value={selectedRole.code} onValueChange={selectRole}>
                   <SelectTrigger aria-label="Chọn vai trò">
@@ -236,12 +254,12 @@ export function AccessView() {
               </div>
 
               <Card className="hidden self-start overflow-hidden lg:block">
-                <div className="flex items-center justify-between border-b px-4 py-3">
+                <div className="flex items-center justify-between px-4 pt-3.5 pb-1">
                   <p className="text-sm font-semibold">
                     Vai trò <span className="font-normal text-muted-foreground tabular-nums">({roles.length})</span>
                   </p>
                 </div>
-                <ul className="space-y-1 p-2" aria-label="Danh sách vai trò">
+                <ul className="space-y-0.5 p-2" aria-label="Danh sách vai trò">
                   {roles.map((role) => {
                     const active = role.id === selectedRole.id;
                     return (
@@ -251,8 +269,8 @@ export function AccessView() {
                           onClick={() => selectRole(role.code)}
                           aria-pressed={active}
                           className={cn(
-                            "w-full rounded-lg px-3 py-2.5 text-left transition-colors",
-                            active ? "bg-primary-soft ring-1 ring-primary/30" : "hover:bg-accent/70",
+                            "w-full rounded-md px-2.5 py-2 text-left transition-colors duration-200",
+                            active ? "bg-primary-soft" : "hover:bg-accent",
                           )}
                         >
                           <span className="flex items-center justify-between gap-2">
@@ -261,7 +279,7 @@ export function AccessView() {
                             </span>
                             {role.status !== "ACTIVE" ? <Badge tone="neutral">Ngừng</Badge> : null}
                           </span>
-                          <span className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                          <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
                             <code className="font-mono">{role.code}</code>
                             {SYSTEM_ROLE_CODES.has(role.code) ? <span>· Hệ thống</span> : null}
                             {role.code === user.role ? <span className="text-primary">· Vai trò của bạn</span> : null}
@@ -274,10 +292,10 @@ export function AccessView() {
               </Card>
 
               <Card className="min-w-0 overflow-hidden">
-                <div className="flex flex-col gap-4 border-b px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex flex-col gap-3 px-4 pt-4 pb-1 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="text-lg font-semibold">{selectedRole.name}</h2>
+                      <h2 className="text-base font-semibold">{selectedRole.name}</h2>
                       <Badge tone="outline" className="font-mono">
                         {selectedRole.code}
                       </Badge>
@@ -291,7 +309,7 @@ export function AccessView() {
                       size="sm"
                       onClick={() => setDialog({ type: "edit-role", role: selectedRole })}
                     >
-                      <Pencil aria-hidden />
+                      <PencilSimple aria-hidden />
                       Sửa
                     </Button>
                     <Hint
@@ -307,14 +325,14 @@ export function AccessView() {
                           onClick={() => setDialog({ type: "delete-role", role: selectedRole })}
                           aria-label={`Xóa vai trò ${selectedRole.name}`}
                         >
-                          <Trash2 className="text-danger" aria-hidden />
+                          <Trash className="text-danger" aria-hidden />
                         </Button>
                       </span>
                     </Hint>
                   </div>
                 </div>
 
-                <div className="space-y-3 px-5 pt-4 empty:hidden">
+                <div className="space-y-2 px-4 pt-3 empty:hidden">
                   {isAdminRole ? (
                     <Notice tone="info" icon={Info}>
                       Vai trò <strong>ADMIN</strong> luôn có toàn quyền (<code className="font-mono">manage · all</code>
@@ -322,7 +340,7 @@ export function AccessView() {
                     </Notice>
                   ) : null}
                   {!isAdminRole && grantsEverything ? (
-                    <Notice tone="warning" icon={AlertTriangle}>
+                    <Notice tone="warning" icon={Warning}>
                       Vai trò này đang được cấp <strong>toàn quyền trên mọi tài nguyên</strong>. Hãy chắc chắn đây là
                       điều bạn muốn.
                     </Notice>
@@ -340,16 +358,16 @@ export function AccessView() {
 
                 <div className="py-2">
                   {rolePermissions.isPending ? (
-                    <div className="space-y-3 p-5" aria-hidden>
+                    <div className="space-y-2 p-4" aria-hidden>
                       {Array.from({ length: 5 }, (_, index) => (
-                        <Skeleton key={index} className="h-12 w-full" />
+                        <Skeleton key={index} className="h-11 w-full" />
                       ))}
                     </div>
                   ) : rolePermissions.isError ? (
                     <ErrorState error={rolePermissions.error} onRetry={() => void rolePermissions.refetch()} />
                   ) : permissions.length === 0 ? (
                     <EmptyState
-                      icon={KeySquare}
+                      icon={ListChecks}
                       title="Chưa có quyền hạn nào"
                       description="Tạo quyền hạn để bắt đầu gán cho vai trò."
                     />
@@ -365,7 +383,7 @@ export function AccessView() {
                 </div>
 
                 {!isAdminRole ? (
-                  <div className="sticky bottom-0 flex flex-col gap-3 border-t bg-card/95 px-5 py-3 backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+                  <div className="sticky bottom-0 flex flex-col gap-3 rounded-b-lg bg-card/95 px-4 py-2.5 shadow-[0_-6px_12px_-8px_hsl(var(--shadow-color)/0.35)] backdrop-blur sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-[13px] text-muted-foreground" aria-live="polite">
                       {dirty ? (
                         <span className="font-medium text-warning">{changes} thay đổi chưa lưu</span>
@@ -382,7 +400,7 @@ export function AccessView() {
                         disabled={!dirty || assign.isPending}
                         onClick={() => setDraft(null)}
                       >
-                        <Undo2 aria-hidden />
+                        <ArrowCounterClockwise aria-hidden />
                         Hoàn tác
                       </Button>
                       <Button size="sm" disabled={!dirty} isLoading={assign.isPending} onClick={save}>
@@ -397,7 +415,7 @@ export function AccessView() {
         </TabsContent>
 
         <TabsContent value="catalog">
-          <PermissionCatalog onCreate={() => setDialog({ type: "create-permission", autoSelect: false })} />
+          <PermissionCatalog />
         </TabsContent>
       </Tabs>
 

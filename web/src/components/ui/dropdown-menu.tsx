@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronRight } from "lucide-react";
+import { CaretRight, Check } from "@phosphor-icons/react/ssr";
 import { DropdownMenu as MenuPrimitive } from "radix-ui";
 import type { ComponentProps } from "react";
 import { cn } from "@/lib/utils";
@@ -12,10 +12,10 @@ export const DropdownMenuSub = MenuPrimitive.Sub;
 export const DropdownMenuRadioGroup = MenuPrimitive.RadioGroup;
 
 const surface =
-  "z-50 min-w-44 overflow-hidden rounded-lg border bg-popover p-1 text-popover-foreground shadow-lift data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-1 data-[side=top]:slide-in-from-bottom-1";
+  "z-50 min-w-44 overflow-hidden rounded-md bg-popover p-1 text-popover-foreground shadow-lift data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-1 data-[side=top]:slide-in-from-bottom-1";
 
 const itemBase =
-  "relative flex cursor-default select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none transition-colors data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground pointer-coarse:py-2.5 [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground";
+  "relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground pointer-coarse:py-2.5 [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground";
 
 export function DropdownMenuContent({
   className,
@@ -70,7 +70,7 @@ export function DropdownMenuSubTrigger({
   return (
     <MenuPrimitive.SubTrigger className={cn(itemBase, "data-[state=open]:bg-accent", className)} {...props}>
       {children}
-      <ChevronRight className="ml-auto" aria-hidden />
+      <CaretRight className="ml-auto" aria-hidden />
     </MenuPrimitive.SubTrigger>
   );
 }
@@ -93,5 +93,5 @@ export function DropdownMenuLabel({ className, ...props }: ComponentProps<typeof
 }
 
 export function DropdownMenuSeparator({ className, ...props }: ComponentProps<typeof MenuPrimitive.Separator>) {
-  return <MenuPrimitive.Separator className={cn("-mx-1 my-1 h-px bg-border", className)} {...props} />;
+  return <MenuPrimitive.Separator className={cn("-mx-1 my-1 h-px bg-muted", className)} {...props} />;
 }

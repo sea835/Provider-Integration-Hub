@@ -10,17 +10,17 @@ export function Table({ className, ...props }: ComponentProps<"table">) {
 }
 
 export function TableHeader({ className, ...props }: ComponentProps<"thead">) {
-  return <thead className={cn("bg-subtle [&_tr]:border-b", className)} {...props} />;
+  return <thead className={cn("", className)} {...props} />;
 }
 
 export function TableBody({ className, ...props }: ComponentProps<"tbody">) {
-  return <tbody className={cn("[&_tr:last-child]:border-0", className)} {...props} />;
+  return <tbody className={cn("[&_tr:nth-child(odd)]:bg-subtle", className)} {...props} />;
 }
 
 export function TableRow({ className, ...props }: ComponentProps<"tr">) {
   return (
     <tr
-      className={cn("border-b transition-colors hover:bg-subtle/70 data-[state=selected]:bg-accent", className)}
+      className={cn("transition-colors duration-150 hover:bg-accent/70 data-[state=selected]:bg-accent", className)}
       {...props}
     />
   );
@@ -30,7 +30,7 @@ export function TableHead({ className, ...props }: ComponentProps<"th">) {
   return (
     <th
       className={cn(
-        "h-10 px-4 text-left align-middle text-xs font-medium tracking-wide whitespace-nowrap text-muted-foreground uppercase",
+        "h-9 px-3 text-left align-middle text-xs font-semibold whitespace-nowrap text-muted-foreground first:pl-4 last:pr-4",
         className,
       )}
       {...props}
@@ -39,5 +39,5 @@ export function TableHead({ className, ...props }: ComponentProps<"th">) {
 }
 
 export function TableCell({ className, ...props }: ComponentProps<"td">) {
-  return <td className={cn("px-4 py-3 align-middle", className)} {...props} />;
+  return <td className={cn("px-3 py-2.5 align-middle first:pl-4 last:pr-4", className)} {...props} />;
 }

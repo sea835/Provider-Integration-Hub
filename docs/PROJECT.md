@@ -134,6 +134,7 @@ Thứ tự đề xuất, cần team thống nhất:
 
 | Tài liệu | Nội dung |
 |---|---|
+| [BALANCE_MONITORING_SYSTEM.md](./BALANCE_MONITORING_SYSTEM.md) | Đặc tả tính năng: Hệ thống giám sát và cảnh báo số dư API nhà mạng |
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | Kiến trúc tổng thể, module, vòng đời request, port/adapter, quyết định kiến trúc |
 | [API.md](./API.md) | Đặc tả REST API: xác thực, định dạng lỗi, rate limit, từng endpoint |
 | [DATABASE.md](./DATABASE.md) | Schema, quan hệ, quy ước cột, lịch sử migration |

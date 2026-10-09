@@ -1,6 +1,6 @@
 "use client";
 
-import { Braces, Plus } from "lucide-react";
+import { BracketsCurly, Plus } from "@phosphor-icons/react/ssr";
 import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -84,7 +84,7 @@ export function PermissionMatrix({
           <tr>
             <th
               scope="col"
-              className="sticky left-0 z-10 border-b bg-subtle px-4 py-3 text-left text-xs font-medium tracking-wide text-muted-foreground uppercase"
+              className="sticky left-0 z-10 bg-card px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground"
             >
               Đối tượng
             </th>
@@ -92,8 +92,8 @@ export function PermissionMatrix({
               const ids = idsFor((_subject, candidate) => candidate === action);
               const state = groupState(ids, selected);
               return (
-                <th key={action} scope="col" className="border-b bg-subtle px-3 py-3 text-center align-bottom">
-                  <div className="flex flex-col items-center gap-2">
+                <th key={action} scope="col" className="bg-card px-3 py-2.5 text-center align-bottom">
+                  <div className="flex flex-col items-center gap-1.5">
                     <span className="text-[13px] font-medium text-foreground">{actionLabel(action)}</span>
                     <span className="font-mono text-[11px] font-normal text-muted-foreground">{action}</span>
                     <Checkbox
@@ -115,12 +115,20 @@ export function PermissionMatrix({
             const managePermission = cells.get(cellKey(subject, "manage"));
             const hasManage = Boolean(managePermission && selected.has(managePermission.id));
             return (
-              <tr key={subject} className={cn("group/row", hasManage && "bg-primary-soft/40")}>
+              <tr
+                key={subject}
+                className={cn(
+                  "group/row even:bg-background",
+                  hasManage && "bg-primary-soft/40 even:bg-primary-soft/40",
+                )}
+              >
                 <th
                   scope="row"
                   className={cn(
-                    "sticky left-0 z-10 border-b px-4 py-3 text-left font-normal",
-                    hasManage ? "bg-[color-mix(in_oklch,var(--card)_80%,var(--primary-soft))]" : "bg-card",
+                    "sticky left-0 z-10 px-4 py-2.5 text-left font-normal",
+                    hasManage
+                      ? "bg-[color-mix(in_oklch,var(--card)_80%,var(--primary-soft))]"
+                      : "bg-card group-even/row:bg-background",
                   )}
                 >
                   <div className="flex items-center gap-3">
@@ -143,7 +151,7 @@ export function PermissionMatrix({
                   const permission = cells.get(cellKey(subject, action));
                   const label = `${actionLabel(action)} · ${subjectLabel(subject)}`;
                   return (
-                    <td key={action} className="border-b px-3 py-3 text-center">
+                    <td key={action} className="px-3 py-2.5 text-center">
                       {permission ? (
                         <span className="relative inline-flex items-center gap-1.5">
                           <Checkbox
@@ -163,10 +171,10 @@ export function PermissionMatrix({
                             >
                               <button
                                 type="button"
-                                className="inline-flex size-5 items-center justify-center rounded text-warning hover:bg-warning-soft"
+                                className="inline-flex size-5 items-center justify-center rounded-sm text-warning hover:bg-warning-soft"
                                 aria-label={`${label} có điều kiện ${JSON.stringify(permission.conditions)}`}
                               >
-                                <Braces className="size-3.5" aria-hidden />
+                                <BracketsCurly className="size-3.5" aria-hidden />
                               </button>
                             </Hint>
                           ) : null}
@@ -176,7 +184,7 @@ export function PermissionMatrix({
                           <button
                             type="button"
                             onClick={() => onCreate({ action, subject })}
-                            className="inline-flex size-6 items-center justify-center rounded-md border border-dashed text-muted-foreground opacity-0 transition-opacity group-hover/row:opacity-100 hover:border-primary hover:text-primary focus-visible:opacity-100 pointer-coarse:opacity-100"
+                            className="inline-flex size-6 items-center justify-center rounded-sm bg-muted text-muted-foreground opacity-0 transition-[opacity,background-color,color] group-hover/row:opacity-100 hover:bg-primary-soft hover:text-primary focus-visible:opacity-100 pointer-coarse:opacity-100"
                             aria-label={`Tạo quyền ${label}`}
                           >
                             <Plus className="size-3.5" aria-hidden />
@@ -184,7 +192,7 @@ export function PermissionMatrix({
                         </Hint>
                       ) : (
                         <span className="text-muted-foreground/50" aria-label="Chưa có quyền này">
-                          —
+                          -
                         </span>
                       )}
                     </td>

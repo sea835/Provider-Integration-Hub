@@ -26,10 +26,10 @@ export function RoleRadioCards({ value, onChange, disabled, ariaLabel = "Vai trÃ
           key={option.value}
           value={option.value}
           className={cn(
-            "group flex w-full items-start gap-3 rounded-lg border bg-card p-3 text-left transition-[border-color,background-color,box-shadow] hover:border-primary/40 disabled:opacity-60 data-[state=checked]:border-primary data-[state=checked]:bg-primary-soft/60 data-[state=checked]:shadow-[0_0_0_3px_var(--primary-soft)]",
+            "group flex w-full items-start gap-3 rounded-md bg-field p-3 text-left transition-[background-color,box-shadow] duration-200 hover:bg-muted disabled:opacity-60 data-[state=checked]:bg-primary-soft",
           )}
         >
-          <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border border-input bg-card group-data-[state=checked]:border-primary">
+          <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-card shadow-[inset_0_0_0_1.5px_var(--color-input)] group-data-[state=checked]:shadow-[inset_0_0_0_1.5px_var(--color-primary)]">
             <RadioGroup.Indicator className="size-2 rounded-full bg-primary" />
           </span>
           <span className="min-w-0 space-y-0.5">

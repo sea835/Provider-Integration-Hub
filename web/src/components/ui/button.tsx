@@ -1,26 +1,28 @@
 import { cva, type VariantProps } from "class-variance-authority";
-import { Loader2 } from "lucide-react";
+import { CircleNotch } from "@phosphor-icons/react/ssr";
 import { Slot } from "radix-ui";
 import type { ComponentProps } from "react";
 import { cn } from "@/lib/utils";
 
 export const buttonVariants = cva(
-  "relative inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-[background-color,border-color,color,box-shadow,transform] duration-150 select-none active:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "relative inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md text-sm font-semibold whitespace-nowrap transition-[background-color,color,box-shadow,transform] duration-200 ease-out-soft select-none active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground shadow-soft hover:bg-primary/90",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/75",
-        outline: "border border-input bg-card text-foreground shadow-xs hover:bg-accent hover:text-accent-foreground",
+        default: "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90",
+        secondary: "bg-secondary text-secondary-foreground hover:bg-accent",
+        outline: "bg-card text-foreground shadow-xs hover:bg-accent hover:text-accent-foreground",
         ghost: "text-foreground hover:bg-accent hover:text-accent-foreground",
-        destructive: "bg-danger text-white shadow-soft hover:bg-danger/90",
+        destructive: "bg-danger text-white shadow-xs hover:bg-danger/90",
         "destructive-ghost": "text-danger hover:bg-danger-soft",
         link: "h-auto px-0 text-primary underline-offset-4 hover:underline",
+        inverse: "bg-hero-foreground text-hero shadow-xs hover:bg-hero-foreground/90",
+        "inverse-ghost": "text-hero-foreground hover:bg-white/10",
       },
       size: {
-        sm: "h-8 px-3 text-[13px]",
-        default: "h-9 px-4",
-        lg: "h-11 px-5 text-[15px]",
+        sm: "h-8 px-2.5 text-[13px]",
+        default: "h-9 px-3.5",
+        lg: "h-10 px-4",
         icon: "size-9 pointer-coarse:size-11",
         "icon-sm": "size-8 pointer-coarse:size-10",
       },
@@ -61,7 +63,7 @@ export function Button({
       aria-busy={isLoading || undefined}
       {...props}
     >
-      {isLoading ? <Loader2 className="animate-spin" aria-hidden /> : null}
+      {isLoading ? <CircleNotch className="animate-spin" aria-hidden /> : null}
       {children}
     </button>
   );

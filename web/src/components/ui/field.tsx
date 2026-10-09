@@ -1,6 +1,6 @@
 "use client";
 
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeSlash } from "@phosphor-icons/react/ssr";
 import { useState, type ComponentProps, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Input } from "./input";
@@ -26,7 +26,7 @@ export function fieldControlProps(id: string, error?: string, hint?: ReactNode) 
 
 export function Field({ id, label, hint, error, required, className, children }: FieldProps) {
   return (
-    <div className={cn("grid gap-2", className)}>
+    <div className={cn("grid gap-1.5", className)}>
       <Label htmlFor={id}>
         {label}
         {required ? (
@@ -61,7 +61,7 @@ export function PasswordInput({ className, ...props }: Omit<ComponentProps<"inpu
         aria-label={visible ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
         aria-pressed={visible}
       >
-        {visible ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
+        {visible ? <EyeSlash className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
       </button>
     </div>
   );

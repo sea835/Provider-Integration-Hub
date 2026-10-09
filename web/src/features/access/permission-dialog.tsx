@@ -144,7 +144,7 @@ export function PermissionDialog({ onClose, onCreated, preset, knownSubjects }: 
                 label="Đối tượng"
                 required
                 error={errors.subject?.message}
-                hint="Tên tài nguyên, ví dụ User, Provider hoặc all"
+                hint="Tên tài nguyên, ví dụ User hoặc all"
               >
                 <Input
                   {...fieldControlProps("permission-subject", errors.subject?.message, "hint")}
@@ -153,7 +153,7 @@ export function PermissionDialog({ onClose, onCreated, preset, knownSubjects }: 
                   autoComplete="off"
                   spellCheck={false}
                   className="font-mono"
-                  placeholder="Provider"
+                  placeholder="User"
                 />
                 <datalist id="permission-subject-options">
                   {subjects.map((item) => (

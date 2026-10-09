@@ -12,12 +12,6 @@ import { PoliciesGuard } from '@modules/authorization/presentation/guards/polici
 import { GlobalExceptionFilter } from '@common/filters/global-exception.filter';
 import { CryptoModule } from '@infrastructure/crypto/crypto.module';
 import { QueueModule } from '@infrastructure/queue/queue.module';
-import { StoreCallbackModule } from '@modules/store-callback/store-callback.module';
-import { ProviderAdapterModule } from '@modules/provider-adapter/provider-adapter.module';
-import { SupplierModule } from '@modules/supplier/supplier.module';
-import { MerchantModule } from '@modules/merchant/merchant.module';
-import { TransactionModule } from '@modules/transaction/transaction.module';
-import { PackageModule } from '@modules/package/package.module';
 
 @Module({
   imports: [
@@ -35,12 +29,6 @@ import { PackageModule } from '@modules/package/package.module';
     AuthenticationModule,
     AuthorizationModule,
     HealthModule,
-    ProviderAdapterModule,
-    SupplierModule,
-    MerchantModule,
-    TransactionModule,
-    PackageModule,
-    StoreCallbackModule,
   ],
   controllers: [],
   providers: [

@@ -8,7 +8,6 @@ import helmet from 'helmet';
 import { AppModule } from '@/app.module';
 import { NestLoggerBridge } from '@infrastructure/logger/nest-logger.bridge';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import { MERCHANT_API_KEY_SECURITY } from '@modules/merchant/presentation/decorators/merchant-auth.decorator';
 
 /** TRUST_PROXY: số hop (vd `1`), `true`, hoặc danh sách IP/subnet của proxy. */
 function parseTrustProxy(value: string): boolean | number | string {
@@ -50,10 +49,6 @@ async function bootstrap() {
     .setVersion('1.0')
     .addTag('users')
     .addBearerAuth()
-    .addApiKey(
-      { type: 'apiKey', name: 'x-api-key', in: 'header' },
-      MERCHANT_API_KEY_SECURITY,
-    )
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('docs', app, document);

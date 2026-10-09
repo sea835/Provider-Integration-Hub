@@ -4,7 +4,10 @@ import {
   HttpRequest,
   HttpResult,
 } from '@modules/provider-adapter/infrastructure/http/http-json.client';
-import { TokenManager } from '@modules/provider-adapter/infrastructure/adapters/http-config/http-config.token-manager';
+import {
+  TokenManager,
+  tokenKey,
+} from '@modules/provider-adapter/infrastructure/adapters/http-config/http-config.token-manager';
 import {
   MemoryTokenStore,
   PlainCipher,
@@ -86,7 +89,7 @@ describe('TokenManager', () => {
       rawBody: '{"password":"pw_secret"}',
     });
     expect(setSpy).toHaveBeenCalledWith(
-      'hub:supplier-token:s1:1',
+      tokenKey(ctx(), params),
       JSON.stringify({ token: 'T1' }),
       540,
     );
@@ -111,11 +114,34 @@ describe('TokenManager', () => {
     expect(calls).toHaveLength(2);
   });
 
-  it('đổi cấu hình (version mới) thì dùng token mới', async () => {
+  it('lưu cấu hình mới mà không đổi phần đăng nhập → vẫn dùng token cũ, không đăng nhập lại', async () => {
     await manager.obtain(ctx(1), params);
-    await expect(manager.obtain(ctx(2), params)).resolves.toMatchObject({
-      token: 'T2',
+    const statusOnly = {
+      ...params,
+      spec: {
+        ...params.spec,
+        order: { ...params.spec.order, status: 'data.status' },
+      },
+    };
+    await expect(manager.obtain(ctx(2), statusOnly)).resolves.toMatchObject({
+      token: 'T1',
+      fromCache: true,
     });
+    expect(calls).toHaveLength(1);
+  });
+
+  it('đổi mật khẩu, URL đăng nhập hoặc biến → đăng nhập lại', async () => {
+    await manager.obtain(ctx(), params);
+    await expect(
+      manager.obtain({ ...ctx(), secrets: { password: 'pw_new' } }, params),
+    ).resolves.toMatchObject({ token: 'T2', fromCache: false });
+    await expect(
+      manager.obtain({ ...ctx(), baseUrl: 'https://ncc-moi.test' }, params),
+    ).resolves.toMatchObject({ token: 'T3' });
+    await expect(
+      manager.obtain(ctx(), { ...params, vars: { partnerCode: 'X' } }),
+    ).resolves.toMatchObject({ token: 'T4' });
+    expect(tokenKey(ctx(), params)).not.toContain('pw_secret');
   });
 
   it('đăng nhập thất bại thì không lưu gì', async () => {
@@ -128,10 +154,10 @@ describe('TokenManager', () => {
   });
 
   it('tiến trình khác đang đăng nhập thì chờ token của tiến trình đó', async () => {
-    await store.lock('hub:supplier-token:s1:1:lock');
+    await store.lock(`${tokenKey(ctx(), params)}:lock`);
     setTimeout(() => {
       void store.set(
-        'hub:supplier-token:s1:1',
+        tokenKey(ctx(), params),
         JSON.stringify({ token: 'FROM_OTHER' }),
       );
     }, 250);
@@ -142,7 +168,7 @@ describe('TokenManager', () => {
   });
 
   it('token lưu hỏng (không giải mã được) thì đăng nhập lại', async () => {
-    store.values.set('hub:supplier-token:s1:1', 'not-json');
+    store.values.set(tokenKey(ctx(), params), 'not-json');
     await expect(manager.obtain(ctx(), params)).resolves.toMatchObject({
       token: 'T1',
     });

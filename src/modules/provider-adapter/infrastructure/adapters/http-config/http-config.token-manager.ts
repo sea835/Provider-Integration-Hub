@@ -1,13 +1,20 @@
+import { createHash } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { SecretCipherPort } from '@common/crypto/secret-cipher.port';
 import { SupplierContext } from '@modules/provider-adapter/domain/provider-adapter.port';
 import { TokenStorePort } from '@modules/provider-adapter/domain/token-store.port';
-import { HttpJsonClient } from '@modules/provider-adapter/infrastructure/http/http-json.client';
+import {
+  HttpJsonClient,
+  HttpResult,
+} from '@modules/provider-adapter/infrastructure/http/http-json.client';
 import { HttpConfigParams } from '@modules/provider-adapter/infrastructure/adapters/http-config/http-config.types';
 import {
+  BuiltRequest,
   buildRequest,
   readToken,
+  requestBaseUrl,
   requestScope,
+  signatureRuleFor,
   TokenReading,
 } from '@modules/provider-adapter/infrastructure/adapters/http-config/http-config.engine';
 
@@ -21,6 +28,47 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** Token kèm nguồn: dùng lại từ Redis, hay vừa đăng nhập (kèm request/phản hồi đăng nhập). */
+export type TokenObtained = TokenReading & {
+  fromCache: boolean;
+  exchange?: { built: BuiltRequest; res: HttpResult };
+};
+
+/**
+ * Khoá token theo những gì ảnh hưởng tới đăng nhập (địa chỉ, request đăng nhập, xác thực,
+ * header, chữ ký áp cho đăng nhập, biến, bí mật). Sửa phần khác của cấu hình vẫn dùng token cũ;
+ * đổi mật khẩu / URL đăng nhập thì tự đăng nhập lại.
+ */
+export function tokenKey(
+  ctx: SupplierContext,
+  params: HttpConfigParams,
+): string {
+  const { spec } = params;
+  let base: string;
+  try {
+    base = requestBaseUrl(spec, spec.token.request, ctx.baseUrl);
+  } catch {
+    base = `missing:${spec.token.request.host ?? ''}`;
+  }
+  const fingerprint = createHash('sha256')
+    .update(
+      JSON.stringify({
+        base,
+        request: spec.token.request,
+        tokenPath: spec.token.tokenPath,
+        auth: spec.auth,
+        headers: spec.headers,
+        signature:
+          signatureRuleFor(spec, 'login', spec.token.request.method) ?? null,
+        vars: params.vars,
+        secrets: ctx.secrets,
+      }),
+    )
+    .digest('hex')
+    .slice(0, 32);
+  return `hub:supplier-token:${ctx.supplierId}:${fingerprint}`;
+}
+
 /**
  * Lấy token đăng nhập NCC: dùng lại token đang lưu (mã hoá, dùng chung mọi tiến trình),
  * hết thì đăng nhập lại. Khoá trong Redis để nhiều worker không cùng đăng nhập một lúc.
@@ -28,7 +76,7 @@ function sleep(ms: number): Promise<void> {
  */
 @Injectable()
 export class TokenManager {
-  private readonly inflight = new Map<string, Promise<TokenReading>>();
+  private readonly inflight = new Map<string, Promise<TokenObtained>>();
 
   constructor(
     private readonly http: HttpJsonClient,
@@ -41,11 +89,16 @@ export class TokenManager {
     ctx: SupplierContext,
     params: HttpConfigParams,
     rejected?: string,
-  ): Promise<TokenReading> {
-    const key = this.keyOf(ctx);
+  ): Promise<TokenObtained> {
+    const key = tokenKey(ctx, params);
     const cached = await this.read(key);
     if (cached && cached !== rejected) {
-      return { ok: true, token: cached, ttlSec: params.spec.token.ttlSec };
+      return {
+        ok: true,
+        token: cached,
+        ttlSec: params.spec.token.ttlSec,
+        fromCache: true,
+      };
     }
     if (cached) await this.store.delete(key);
 
@@ -58,8 +111,11 @@ export class TokenManager {
     return run;
   }
 
-  async invalidate(ctx: SupplierContext): Promise<void> {
-    await this.store.delete(this.keyOf(ctx));
+  async invalidate(
+    ctx: SupplierContext,
+    params: HttpConfigParams,
+  ): Promise<void> {
+    await this.store.delete(tokenKey(ctx, params));
   }
 
   private async login(
@@ -67,7 +123,7 @@ export class TokenManager {
     params: HttpConfigParams,
     key: string,
     rejected?: string,
-  ): Promise<TokenReading> {
+  ): Promise<TokenObtained> {
     const lockKey = `${key}:lock`;
     const locked = await this.store.lock(lockKey, LOCK_MS);
     if (!locked) {
@@ -75,7 +131,12 @@ export class TokenManager {
         await sleep(WAIT_STEP_MS);
         const token = await this.read(key);
         if (token && token !== rejected) {
-          return { ok: true, token, ttlSec: params.spec.token.ttlSec };
+          return {
+            ok: true,
+            token,
+            ttlSec: params.spec.token.ttlSec,
+            fromCache: true,
+          };
         }
       }
     }
@@ -102,7 +163,7 @@ export class TokenManager {
           Math.max(MIN_CACHE_SEC, reading.ttlSec - SAFETY_MARGIN_SEC),
         );
       }
-      return reading;
+      return { ...reading, fromCache: false, exchange: { built, res } };
     } finally {
       if (locked) await this.store.unlock(lockKey);
     }
@@ -117,9 +178,5 @@ export class TokenManager {
     } catch {
       return null;
     }
-  }
-
-  private keyOf(ctx: SupplierContext): string {
-    return `hub:supplier-token:${ctx.supplierId}:${ctx.configVersion}`;
   }
 }

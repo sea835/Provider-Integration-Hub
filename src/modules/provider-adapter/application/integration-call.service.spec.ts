@@ -10,6 +10,11 @@ import {
 import { IntegrationCallService } from '@modules/provider-adapter/application/integration-call.service';
 import { AdapterRegistry } from '@modules/provider-adapter/application/adapter-registry';
 import { blockedDestination } from '@modules/provider-adapter/infrastructure/http/destination-guard';
+import { TokenManager } from '@modules/provider-adapter/infrastructure/adapters/http-config/http-config.token-manager';
+import {
+  MemoryTokenStore,
+  PlainCipher,
+} from '@modules/provider-adapter/infrastructure/adapters/http-config/http-config.test-support';
 
 const momo = JSON.parse(
   readFileSync(
@@ -80,6 +85,7 @@ describe('IntegrationCallService (gọi thử)', () => {
     service = new IntegrationCallService(
       http,
       {} as unknown as AdapterRegistry,
+      new TokenManager(http, new MemoryTokenStore(), new PlainCipher()),
       logger,
     );
   });
@@ -112,6 +118,49 @@ describe('IntegrationCallService (gọi thử)', () => {
     expect(text).not.toContain('tok-live-789');
     expect(text).not.toContain('pw_saved_123');
     expect(out.call?.request.headers.Authorization).toBe('Bearer ***');
+  });
+
+  it('gọi thử lần sau dùng lại token đã lưu, không đăng nhập lại', async () => {
+    await call();
+    const second = await call();
+    expect(sent.filter((r) => r.url.includes('/partner/login'))).toHaveLength(
+      1,
+    );
+    expect(second.tokenReused).toBe(true);
+    expect(second.login).toBeNull();
+    expect(second.result).toMatchObject({ outcome: 'SUCCESS' });
+  });
+
+  it('token đã lưu bị NCC từ chối (401) → đăng nhập lại đúng một lần rồi gọi lại', async () => {
+    await call();
+    let rejected = true;
+    other = () =>
+      rejected
+        ? ((rejected = false), reply(401, { error: 866300001 }))
+        : reply(200, {
+            error: 862000000,
+            message: 'Success',
+            data: {
+              momoTransId: 'O1',
+              partnerTransId: 'PQ1',
+              status: 'SUCCESS',
+            },
+          });
+    let logins = 0;
+    login = () => {
+      logins += 1;
+      return reply(200, {
+        error: 866000000,
+        message: 'Success',
+        accessToken: `tok-new-${logins}`,
+      });
+    };
+    const out = await call();
+    expect(logins).toBe(1);
+    expect(out.tokenReused).toBe(false);
+    expect(out.login).toMatchObject({ ok: true });
+    expect(out.result).toMatchObject({ outcome: 'SUCCESS' });
+    expect(sent.at(-1)?.headers?.Authorization).toBe('Bearer tok-new-1');
   });
 
   it('bí mật đang nhập dở được dùng thay bí mật đã lưu', async () => {

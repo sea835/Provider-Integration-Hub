@@ -195,6 +195,7 @@ export interface IntegrationCallInput {
 export interface IntegrationCallOutput {
   issues: string[];
   login: (LiveExchange & { ok: boolean; message: string | null }) | null;
+  tokenReused?: boolean;
   call: LiveExchange | null;
   result: IntegrationPreviewOutput["result"];
   explain: string | null;

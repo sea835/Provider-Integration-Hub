@@ -433,4 +433,47 @@ describe('Tự cấu hình: tích hợp MoMo có đăng nhập và chữ ký (e2
         .expect(200);
     }
   });
+
+  it('token lưu trong Redis: gọi thử nhiều lần chỉ đăng nhập một lần; lưu cấu hình không đổi phần đăng nhập thì không đăng nhập lại', async () => {
+    const id = supplierIds[0];
+    const params = { ...momo, vars: { ...momo.vars, partnerCode: 'PQ_E2E' } };
+    const live = () =>
+      http
+        .post(`/admin/suppliers/${id}/integration-call`)
+        .set(admin())
+        .send({ params, kind: 'TEST' })
+        .expect(200);
+
+    await live();
+    const before = mock.logins;
+    const again = await live();
+    const third = await live();
+    expect(mock.logins).toBe(before);
+    expect(again.body).toMatchObject({ tokenReused: true, login: null });
+    expect(third.body).toMatchObject({ tokenReused: true });
+
+    const spec = momo.spec as Record<string, unknown> & {
+      order: Record<string, unknown>;
+    };
+    await http
+      .patch(`/admin/suppliers/${id}`)
+      .set(admin())
+      .send({
+        params: {
+          ...params,
+          spec: { ...spec, order: { ...spec.order, errorCodePrefix: 'MM_' } },
+        },
+      })
+      .expect(200);
+    await new Promise((r) => setTimeout(r, 500));
+    const res = await buy('0912345679').expect(202);
+    await waitStatus((res.body as OrderBody).transCode, 'COMPLETED');
+    expect(mock.logins).toBe(before);
+
+    await http
+      .patch(`/admin/suppliers/${id}`)
+      .set(admin())
+      .send({ params })
+      .expect(200);
+  });
 });

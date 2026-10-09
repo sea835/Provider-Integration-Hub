@@ -140,6 +140,9 @@ function ResultView({
       {output.check ? <CheckVerdict check={output.check} /> : null}
       {output.balance ? <BalanceVerdict balance={output.balance} /> : null}
       {output.orders ? <OrdersTable orders={output.orders} /> : null}
+      {output.tokenReused ? (
+        <p className="text-[12.5px] text-muted-foreground">Đăng nhập: dùng lại token đã lưu, không đăng nhập lại.</p>
+      ) : null}
       {output.login ? (
         output.login.ok && output.call ? (
           <details className="text-[12.5px]">

@@ -12,6 +12,10 @@ import {
   HttpResult,
 } from '@modules/provider-adapter/infrastructure/http/http-json.client';
 import { blockedDestination } from '@modules/provider-adapter/infrastructure/http/destination-guard';
+import {
+  TokenManager,
+  TokenObtained,
+} from '@modules/provider-adapter/infrastructure/adapters/http-config/http-config.token-manager';
 import { parseParams } from '@modules/provider-adapter/infrastructure/adapters/http-config/http-config.validation';
 import {
   BuiltRequest,
@@ -25,12 +29,12 @@ import {
   readCheck,
   readOrderItems,
   readPackages,
-  readToken,
   requestScope,
   summarizeOrder,
   UnknownHostError,
   checkTarget,
   readBalance,
+  needsTokenRefresh,
 } from '@modules/provider-adapter/infrastructure/adapters/http-config/http-config.engine';
 import {
   CallKind,
@@ -99,6 +103,8 @@ export interface LiveExchange {
 export interface LiveCallOutput {
   issues: string[];
   login: (LiveExchange & { ok: boolean; message: string | null }) | null;
+  /** true: dùng lại token đã lưu trong Redis, không đăng nhập lại. */
+  tokenReused?: boolean;
   call: LiveExchange | null;
   result: PreviewResult | null;
   explain: string | null;
@@ -192,6 +198,7 @@ export class IntegrationCallService {
   constructor(
     private readonly http: HttpJsonClient,
     private readonly adapters: AdapterRegistry,
+    private readonly tokens: TokenManager,
     logger: LoggerPort,
   ) {
     this.logger = logger.child(
@@ -363,41 +370,40 @@ export class IntegrationCallService {
 
     let token: string | null = null;
     let login: LiveCallOutput['login'] = null;
+    let tokenReused = false;
+    const tokenCtx = { ...input.ctx, secrets };
+    const loginOf = (obtained: TokenObtained): LiveCallOutput['login'] =>
+      obtained.exchange
+        ? {
+            ...this.exchange(
+              obtained.exchange.built,
+              obtained.exchange.res,
+              secrets,
+              obtained.ok ? obtained.token : null,
+            ),
+            ok: obtained.ok,
+            message: obtained.ok ? null : obtained.message,
+          }
+        : null;
     if (spec.token.enabled) {
       if (!spec.token.request.path) {
         return fail(['Đăng nhập lấy token: chưa nhập đường dẫn đăng nhập']);
       }
-      const sent = await this.send(
-        input.ctx,
-        params,
-        secrets,
-        spec.token.request,
-        null,
-        null,
-        'login',
-      );
-      if ('blocked' in sent) return fail([sent.blocked]);
-      const reading = readToken(spec, sent.res);
-      login = {
-        ...this.exchange(
-          sent.built,
-          sent.res,
-          secrets,
-          reading.ok ? reading.token : null,
-        ),
-        ok: reading.ok,
-        message: reading.ok ? null : reading.message,
-      };
-      if (!reading.ok) {
+      const loginBlocked = await this.loginBlocked(tokenCtx, params);
+      if (loginBlocked) return fail([loginBlocked]);
+      const obtained = await this.tokens.obtain(tokenCtx, params);
+      login = loginOf(obtained);
+      tokenReused = obtained.fromCache;
+      if (!obtained.ok) {
         return {
           issues: [],
           login,
           call: null,
           result: null,
-          explain: `Đăng nhập không lấy được token: ${reading.message}`,
+          explain: `Đăng nhập không lấy được token: ${obtained.message}`,
         };
       }
-      token = reading.token;
+      token = obtained.token;
     }
 
     const sent = await this.send(
@@ -411,17 +417,39 @@ export class IntegrationCallService {
       range,
     );
     if ('blocked' in sent) return fail([sent.blocked]);
-    const call = this.exchange(sent.built, sent.res, secrets, token);
-    const res = sent.res;
+    let final = sent;
+    if (token && needsTokenRefresh(spec, sent.res)) {
+      const renewed = await this.tokens.obtain(tokenCtx, params, token);
+      login = loginOf(renewed) ?? login;
+      tokenReused = false;
+      if (renewed.ok) {
+        token = renewed.token;
+        const again = await this.send(
+          input.ctx,
+          params,
+          secrets,
+          request,
+          order,
+          token,
+          target.kind,
+          range,
+        );
+        if ('blocked' in again) return fail([again.blocked]);
+        final = again;
+      }
+    }
+    const call = this.exchange(final.built, final.res, secrets, token);
+    const res = final.res;
 
     this.logger.info('Gọi thử nhà cung cấp', {
       supplier: input.ctx.supplierCode,
       kind: input.kind,
-      host: new URL(sent.built.url).host,
+      host: new URL(final.built.url).host,
+      tokenReused,
       httpStatus: res.ok ? res.status : res.kind,
     });
 
-    const base = { issues: [], login, call };
+    const base = { issues: [], login, call, tokenReused };
     switch (input.kind) {
       case 'TEST': {
         const tested = classifyTest(spec, res);
@@ -565,6 +593,27 @@ export class IntegrationCallService {
       timeoutMs: ctx.timeouts.queryMs,
     });
     return { built, res };
+  }
+
+  /** Chặn đăng nhập tới địa chỉ nội bộ khi gọi thử bằng bản đang sửa. */
+  private async loginBlocked(
+    ctx: SupplierContext,
+    params: HttpConfigParams,
+  ): Promise<string | null> {
+    try {
+      const built = buildRequest(
+        params.spec,
+        params.spec.token.request,
+        ctx.baseUrl,
+        requestScope(params, ctx.secrets, null),
+        'login',
+      );
+      return await blockedDestination(built.url);
+    } catch (error) {
+      return error instanceof UnknownHostError
+        ? error.message
+        : 'Địa chỉ đăng nhập không hợp lệ';
+    }
   }
 
   private exchange(

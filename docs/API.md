@@ -161,6 +161,20 @@ Kết quả sắp xếp theo `createdAt` giảm dần (mới nhất trước).
 | `GET` | `/users/:id` | Bearer · `ADMIN` | Chi tiết người dùng |
 | `PATCH` | `/users/:id` | Bearer · `ADMIN` | Cập nhật người dùng (kể cả role) |
 | `DELETE` | `/users/:id` | Bearer · `ADMIN` | Xoá người dùng |
+| `GET` | `/admin/providers` | Bearer · `read Provider` | Danh sách đối tác kèm số dư, mức cảnh báo |
+| `GET` | `/admin/providers/:id` | Bearer · `read Provider` | Chi tiết đối tác (không trả giá trị bí mật) |
+| `POST` | `/admin/providers` | Bearer · `create Provider` | Tạo đối tác (bắt đầu ở `PAUSED`) |
+| `PATCH` | `/admin/providers/:id` | Bearer · `update Provider` | Sửa tên, ngưỡng, chu kỳ, bật / tạm dừng |
+| `PUT` | `/admin/providers/:id/config` | Bearer · `manage Provider` | Lưu cấu hình API, bí mật, hệ số đơn vị |
+| `POST` | `/admin/providers/test-connection` | Bearer · `manage Provider` | Gọi thử bằng cấu hình đang soạn (cả luồng hoặc chỉ đăng nhập) |
+| `PUT` | `/admin/providers/:id/samples` | Bearer · `manage Provider` | Lưu phản hồi mẫu để chọn trường khi cấu hình |
+| `POST` | `/admin/providers/:id/check` | Bearer · `update Provider` | Kiểm tra số dư ngay |
+| `DELETE` | `/admin/providers/:id` | Bearer · `delete Provider` | Xoá đối tác cùng lịch quét và lịch sử |
+| `GET` | `/admin/alert-channels/telegram` | Bearer · `read AlertChannel` | Cấu hình kênh Telegram (không trả bot token) |
+| `PUT` | `/admin/alert-channels/telegram` | Bearer · `update AlertChannel` | Lưu bot token, Chat ID, bật / tắt kênh |
+| `POST` | `/admin/alert-channels/telegram/test` | Bearer · `update AlertChannel` | Gửi tin thử |
+| `GET` | `/admin/balance-checks` | Bearer · `read BalanceCheck` | Lịch sử kiểm tra, có lọc và phân trang |
+| `GET` | `/admin/balance-checks/series` | Bearer · `read BalanceCheck` | Số dư theo thời gian cho biểu đồ |
 | `GET` | `/health/live` | Public | Liveness: tiến trình còn sống |
 | `GET` | `/health/ready` | Public | Readiness: sẵn sàng nhận traffic (kiểm tra DB) |
 
@@ -538,3 +552,162 @@ Import `postman/Provider_Integration_Hub.postman_collection.json` và environmen
 - Điền `adminEmail`, `adminPassword` trong environment bằng tài khoản tạo từ `npm run db:seed:admin`.
 - Collection dùng auth Bearer `{{accessToken}}`; `Login (Admin)` và `Refresh Token` tự lưu token vào biến collection.
 - Chạy cả collection theo thứ tự (Collection Runner) để đi hết luồng; `Logout` đặt cuối cùng.
+
+---
+
+## 14. Giám Sát Số Dư
+
+Đặc tả nghiệp vụ: [BALANCE_MONITORING_SYSTEM.md](./BALANCE_MONITORING_SYSTEM.md). Quyền mặc định sau `npm run db:seed:permissions`: `ADMIN` toàn quyền; `MANAGER` có `read`, `update Provider` và `read BalanceCheck`; `USER` chỉ có `read`.
+
+### 14.1. Đối tác
+
+`POST /admin/providers`
+
+```json
+{
+  "code": "VIETTEL_DATA",
+  "name": "Viettel Telecom - Data 4G",
+  "intervalMinutes": 15,
+  "warningThreshold": 50000000,
+  "criticalThreshold": 10000000,
+  "cooldownMinutes": 60
+}
+```
+
+- `code`: 2-50 ký tự `A-Z`, `0-9`, `_`, bắt đầu bằng chữ cái, duy nhất (`409 ERR_PROVIDER_CODE_TAKEN`).
+- `intervalMinutes`: `5` (mặc định), `15`, `30` hoặc `60`. `cooldownMinutes`: 5-1440.
+- Ngưỡng tính bằng VNĐ, `null` = không dùng mức đó; ngưỡng khẩn cấp phải nhỏ hơn hoặc bằng ngưỡng cảnh báo sớm.
+
+`PATCH /admin/providers/:id` nhận các trường trên (trừ `code`) và `status` (`ACTIVE` / `PAUSED`). Bật `ACTIVE` khi cấu hình chưa đủ trả `422 ERR_PROVIDER_NOT_READY` kèm danh sách phần còn thiếu.
+
+`PUT /admin/providers/:id/config`
+
+```json
+{
+  "config": {
+    "baseUrl": "https://api.doitac.vn",
+    "hosts": [{ "key": "auth", "label": "Máy chủ đăng nhập", "url": "https://id.doitac.vn" }],
+    "vars": { "partnerCode": "PQ01" },
+    "spec": {
+      "auth": { "type": "BEARER", "value": "{{token}}" },
+      "token": {
+        "enabled": true,
+        "request": {
+          "host": "auth",
+          "method": "POST",
+          "path": "/auth/login",
+          "body": [{ "key": "password", "value": "{{secrets.password}}" }]
+        },
+        "tokenPath": "body.data.accessToken",
+        "expiresInPath": "body.data.expiresIn"
+      },
+      "signature": {
+        "enabled": true,
+        "algorithm": "HMAC_SHA256",
+        "key": "{{secrets.signKey}}",
+        "input": "TEMPLATE",
+        "template": "{{vars.partnerCode}}|{{now.unixMs}}",
+        "encoding": "HEX",
+        "target": "HEADER",
+        "name": "X-Signature",
+        "apply": { "login": false, "balance": true }
+      },
+      "headers": [{ "name": "X-Partner", "value": "{{vars.partnerCode}}" }],
+      "balance": {
+        "request": { "method": "GET", "path": "/v1/partner/balance" },
+        "success": [
+          { "path": "http.status", "operator": "IN", "values": ["2xx"] },
+          { "path": "body.error", "operator": "IN", "values": ["0"] }
+        ],
+        "balancePath": "body.data.availBalance",
+        "errorCodePath": "body.error",
+        "errorMessagePath": "body.message"
+      }
+    }
+  },
+  "secrets": { "password": "S3cret!", "signKey": "..." },
+  "unitMultiplier": 1000
+}
+```
+
+- Phần thiếu trong `config` được điền mặc định; sai kiểu trả `400 ERR_PROVIDER_CONFIG_INVALID`.
+- `secrets`: chuỗi = đặt giá trị mới, `null` = xoá, bỏ qua hoặc chuỗi rỗng = giữ nguyên. Giá trị được mã hoá AES-256-GCM và không bao giờ trả về; response chỉ có `secretKeys`.
+- Mọi đường dẫn đọc phản hồi bắt đầu bằng `body.`, `http.` hoặc `headers.`.
+- `hosts`: các Base URL có tên (tối đa 10) cho đối tác có nhiều máy chủ. Request ghi `host` bằng `key` của một địa chỉ thì gọi tới địa chỉ đó; `host` rỗng hoặc không ghi thì dùng `baseUrl` mặc định. Request trỏ tới `key` không còn trong danh sách làm cấu hình chưa sẵn sàng (`422`).
+
+`ProviderResponse` gồm các trường đã lưu và các trường tính sẵn: `level` (`OK` / `WARNING` / `CRITICAL` theo số dư hiện tại), `connectionFailing`, `consecutiveFailures`, `lastCheckedAt`, `lastStatus`, `secretKeys`, `readinessIssues`.
+
+### 14.2. Thử kết nối và kiểm tra ngay
+
+`POST /admin/providers/test-connection` nhận body như `PUT .../config`, thêm hai trường tuỳ chọn:
+
+- `providerId`: dùng bí mật đã lưu của đối tác cho các khoá không nhập lại.
+- `scope`: `balance` (mặc định; đăng nhập nếu bật rồi gọi API số dư) hoặc `login` (chỉ gọi API đăng nhập).
+
+Gọi thử chỉ cần request gọi được: chưa khai báo `tokenPath` hay `balancePath` vẫn gọi và trả nguyên phản hồi, để người cấu hình chọn trường. Khi đó `ok` là `false` với `errorCode` `TOKEN_PATH_MISSING` hoặc `BALANCE_PATH_MISSING`, còn bước tương ứng trong `steps` có `ok: true`. Không ghi lịch sử, không gửi cảnh báo. Luôn trả `200`:
+
+```json
+{
+  "ok": true,
+  "balance": 120000000,
+  "rawValue": "120000",
+  "httpStatus": 200,
+  "latencyMs": 42,
+  "errorCode": null,
+  "errorMessage": null,
+  "tokenPreview": "tok_1_…(23 ký tự)",
+  "steps": [
+    {
+      "kind": "login",
+      "ok": true,
+      "note": "Lấy được token, dùng trong 900 giây",
+      "request": { "method": "POST", "url": "...", "headers": {}, "body": { "password": "***" } },
+      "response": { "status": 200, "body": {}, "durationMs": 31 }
+    }
+  ]
+}
+```
+
+Mã lỗi của `errorCode`: `TIMEOUT`, `NETWORK`, `LOGIN_FAILED`, `LOGIN_UNREACHABLE`, `LOGIN_DISABLED`, `TOKEN_PATH_MISSING`, `BLOCKED_DESTINATION`, `BALANCE_PATH_MISSING`, `BALANCE_NOT_FOUND`, `BALANCE_NOT_NUMBER`, `CONFIG_ERROR`, `HTTP_<status>`, hoặc mã do đối tác trả ở `errorCodePath`.
+
+`PUT /admin/providers/:id/samples` lưu phản hồi mẫu của từng lời gọi. Giao diện dùng các mẫu này để bấm chọn trường cho ô đường dẫn; chúng không ảnh hưởng tới việc gọi API.
+
+```json
+{
+  "login": { "httpStatus": 200, "body": { "data": { "accessToken": "***" } }, "capturedAt": "2026-10-12T03:00:00.000Z" },
+  "balance": null
+}
+```
+
+Lời gọi không gửi lên thì giữ nguyên, `null` thì xoá mẫu. Mỗi `body` tối đa 100 000 ký tự JSON. Trả `ProviderResponse` (có trường `samples`).
+
+`POST /admin/providers/:id/check` chạy một lượt kiểm tra thật: ghi `balance_checks`, cập nhật đối tác và áp quy tắc cảnh báo. Trả `BalanceCheckResponse`. Đối tác đang `PAUSED` trả `409 ERR_PROVIDER_PAUSED`.
+
+### 14.3. Lịch sử và biểu đồ
+
+`GET /admin/balance-checks?providerId=&status=&from=&to=&page=&limit=` trả `{ data: BalanceCheckResponse[], meta }` (xem mục 6), mới nhất trước. `status`: `SUCCESS` / `FAILED`; `from`, `to`: ISO 8601.
+
+`GET /admin/balance-checks/series?range=24h&providerIds=id1,id2` trả mỗi đối tác một dãy điểm `{ at, balance }`. `range` nhận `5m`, `15m`, `30m`, `60m`, `3h`, `12h`, `24h` (mặc định), `7d`, `30d`. Mỗi điểm là số dư cuối cùng của một khoảng: 10 giây (`5m`, `15m`), 30 giây (`30m`), 1 phút (`60m`, `3h`), 5 phút (`12h`, `24h`), 1 giờ (`7d`), 4 giờ (`30d`). Bỏ `providerIds` = tất cả đối tác.
+
+### 14.4. Kênh thông báo Telegram
+
+Quyền `read AlertChannel` / `update AlertChannel`; sau khi seed chỉ `ADMIN` có (qua `manage all`), cấp cho vai trò khác ở trang Phân quyền.
+
+`GET /admin/alert-channels/telegram`
+
+```json
+{ "source": "DATABASE", "enabled": true, "chatId": "-1001234567890", "hasBotToken": true, "updatedAt": "2026-10-12T03:30:00.000Z" }
+```
+
+`source`: `DATABASE` (đã lưu trên giao diện), `ENV` (đang dùng `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`), `NONE` (chưa cấu hình). Bot token không bao giờ được trả về.
+
+`PUT /admin/alert-channels/telegram` nhận `{ enabled?, chatId?, botToken? }`. `botToken` bỏ qua hoặc rỗng = giữ token đang lưu. Bật kênh khi thiếu token hoặc Chat ID, hoặc sai định dạng, trả `400 ERR_ALERT_CHANNEL_INVALID`. Một khi đã lưu, cấu hình này thay cho biến môi trường, kể cả khi tắt kênh.
+
+`POST /admin/alert-channels/telegram/test` nhận `{ chatId?, botToken? }` (giá trị đang soạn, thiếu thì dùng giá trị đã lưu) và gửi một tin thử. Luôn trả `200`:
+
+```json
+{ "status": "FAILED", "detail": "Telegram trả lỗi 401: Unauthorized" }
+```
+
+`status`: `SENT`, `FAILED`, hoặc `DISABLED` (chưa có đủ token và Chat ID).
+

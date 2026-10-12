@@ -72,6 +72,47 @@ async function main() {
         subject: 'User',
         description: 'Xóa tài khoản người dùng',
       },
+      {
+        action: 'read',
+        subject: 'Provider',
+        description: 'Xem đối tác, số dư và mức cảnh báo',
+      },
+      {
+        action: 'create',
+        subject: 'Provider',
+        description: 'Thêm đối tác',
+      },
+      {
+        action: 'update',
+        subject: 'Provider',
+        description:
+          'Sửa ngưỡng, chu kỳ quét, tạm dừng / bật và kiểm tra số dư ngay',
+      },
+      {
+        action: 'delete',
+        subject: 'Provider',
+        description: 'Xóa đối tác',
+      },
+      {
+        action: 'manage',
+        subject: 'Provider',
+        description: 'Toàn quyền đối tác: cấu hình API, bí mật, thử kết nối',
+      },
+      {
+        action: 'read',
+        subject: 'BalanceCheck',
+        description: 'Xem lịch sử và biểu đồ số dư',
+      },
+      {
+        action: 'read',
+        subject: 'AlertChannel',
+        description: 'Xem cấu hình kênh thông báo',
+      },
+      {
+        action: 'update',
+        subject: 'AlertChannel',
+        description: 'Sửa kênh thông báo Telegram và gửi tin thử',
+      },
     ];
 
     for (const p of defaultPermissions) {
@@ -117,57 +158,48 @@ async function main() {
       }
     }
 
-    const managerRole = allRoles.find((r) => r.code === 'MANAGER');
-    if (managerRole) {
-      const managerPerms = allPerms.filter(
-        (p) =>
-          p.action !== 'manage' &&
-          p.action !== 'delete' &&
-          p.subject === 'User',
-      );
-      for (const p of managerPerms) {
-        const [existingMap] = await db
-          .select()
-          .from(rolePermissions)
-          .where(
-            and(
-              eq(rolePermissions.roleId, managerRole.id),
-              eq(rolePermissions.permissionId, p.id),
-            ),
-          );
-        if (!existingMap) {
-          await db.insert(rolePermissions).values({
-            roleId: managerRole.id,
-            permissionId: p.id,
-          });
-        }
-      }
-      console.log('Đã gán permissions cho MANAGER');
-    }
+    /** Quyền mặc định của từng vai trò (ADMIN đã có manage all). */
+    const roleGrants: Record<string, Array<[string, string]>> = {
+      MANAGER: [
+        ['read', 'User'],
+        ['create', 'User'],
+        ['update', 'User'],
+        ['read', 'Provider'],
+        ['update', 'Provider'],
+        ['read', 'BalanceCheck'],
+      ],
+      USER: [
+        ['read', 'User'],
+        ['read', 'Provider'],
+        ['read', 'BalanceCheck'],
+      ],
+    };
 
-    const userRole = allRoles.find((r) => r.code === 'USER');
-    if (userRole) {
-      const userPerms = allPerms.filter(
-        (p) => p.action === 'read' && p.subject === 'User',
-      );
-      for (const p of userPerms) {
+    for (const [code, grants] of Object.entries(roleGrants)) {
+      const role = allRoles.find((r) => r.code === code);
+      if (!role) continue;
+      for (const [action, subject] of grants) {
+        const perm = allPerms.find(
+          (p) => p.action === action && p.subject === subject,
+        );
+        if (!perm) continue;
         const [existingMap] = await db
           .select()
           .from(rolePermissions)
           .where(
             and(
-              eq(rolePermissions.roleId, userRole.id),
-              eq(rolePermissions.permissionId, p.id),
+              eq(rolePermissions.roleId, role.id),
+              eq(rolePermissions.permissionId, perm.id),
             ),
           );
         if (!existingMap) {
           await db.insert(rolePermissions).values({
-            roleId: userRole.id,
-            permissionId: p.id,
+            roleId: role.id,
+            permissionId: perm.id,
           });
         }
       }
-      console.log('Đã gán permissions cho USER');
+      console.log(`Đã gán permissions cho ${code}`);
     }
   } finally {
     await pool.end();

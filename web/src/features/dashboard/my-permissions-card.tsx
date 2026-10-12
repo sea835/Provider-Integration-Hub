@@ -12,7 +12,7 @@ function asList(value: string | string[] | undefined): string[] {
   return Array.isArray(value) ? value : [value];
 }
 
-export function MyPermissionsCard() {
+export function MyPermissionsCard({ className }: { className?: string }) {
   const { user } = useSession();
   const ability = useAppAbility();
   const role = roleMeta(user.role);
@@ -29,7 +29,7 @@ export function MyPermissionsCard() {
   );
 
   return (
-    <Card>
+    <Card className={className}>
       <CardHeader>
         <div>
           <CardTitle>Quyền của bạn</CardTitle>

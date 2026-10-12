@@ -12,6 +12,10 @@ const dateFormatter = new Intl.DateTimeFormat(LOCALE, { day: "2-digit", month: "
 
 const numberFormatter = new Intl.NumberFormat(LOCALE);
 
+const moneyFormatter = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 2 });
+
+const compactFormatter = new Intl.NumberFormat(LOCALE, { notation: "compact", maximumFractionDigits: 1 });
+
 const relativeFormatter = new Intl.RelativeTimeFormat(LOCALE, { numeric: "auto" });
 
 const RELATIVE_STEPS: Array<[Intl.RelativeTimeFormatUnit, number]> = [
@@ -38,6 +42,14 @@ export function formatDate(value: string | number | Date): string {
 
 export function formatNumber(value: number): string {
   return numberFormatter.format(value);
+}
+
+export function formatMoney(value: number | null | undefined): string {
+  return value === null || value === undefined ? "-" : `${moneyFormatter.format(value)} đ`;
+}
+
+export function formatCompact(value: number): string {
+  return compactFormatter.format(value);
 }
 
 export function formatRelative(value: string | number | Date, now: number = Date.now()): string {

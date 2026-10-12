@@ -1,8 +1,8 @@
 # HỆ THỐNG GIÁM SÁT & CẢNH BÁO SỐ DƯ API NHÀ MẠNG
 ### (Telco API Balance Monitoring System)
 
-> **Trạng thái:** Sẵn sàng triển khai (v1 — phạm vi tối giản)  
-> **Phiên bản:** 1.1.0  
+> **Trạng thái:** Đã triển khai v1 (2026-10-12)  
+> **Phiên bản:** 1.2.0  
 > **Phạm vi:** Provider Integration Hub (`feature/balance-warning-system`)
 
 ---
@@ -68,6 +68,7 @@ Lần gọi từ nút **Thử kết nối** chỉ trả kết quả về giao di
 Engine đã có ở commit `646949a` (`src/modules/provider-adapter/infrastructure/adapters/http-config/`). Port lại, bỏ toàn bộ phần đơn hàng (`order.*`, submit/query/orders/packages/check), chỉ giữ `login`, `balance`, `test`.
 
 * **Request:** Base URL, path, method (`GET` / `POST` / `PUT`), query, headers, body (`JSON` / `FORM`).
+* **Nhiều Base URL:** ngoài Base URL mặc định, khai báo thêm tối đa 10 Base URL có tên (VD `auth` cho máy chủ đăng nhập); mỗi API chọn địa chỉ ở ô "Gọi tới". Đổi môi trường chỉ sửa URL một chỗ.
 * **Biến template:** `{{vars.*}}`, `{{secrets.*}}`, `{{token}}`, `{{now.unixMs}}` / `{{now.unixSec}}` / `{{now.iso}}`, `{{uuid}}`.
 * **Auth:** `NONE`, `BEARER`, `BASIC`, `HEADER`, `QUERY`.
 * **Token:** gọi API login khi cache Redis chưa có/hết hạn; TTL cache = `expires_in` trừ hao an toàn; Redis lock để chỉ 1 job login cùng lúc; gặp 401 / mã lỗi phiên hết hạn đã cấu hình → xoá token, login lại, gọi lại 1 lần.
@@ -82,14 +83,14 @@ Engine đã có ở commit `646949a` (`src/modules/provider-adapter/infrastructu
 
 ### 3.4. Lập lịch & worker
 
-* Chu kỳ mỗi đối tác chọn trong: 5 / 15 / 30 / 60 phút. Đổi chu kỳ hoặc trạng thái thì cập nhật job scheduler ngay, không cần khởi động lại.
+* Chu kỳ mỗi đối tác chọn trong: 5 / 15 / 30 / 60 phút, mặc định 5 phút. Đổi chu kỳ hoặc trạng thái thì cập nhật job scheduler ngay, không cần khởi động lại.
 * Chạy trong `src/worker.ts` (BullMQ), tách khỏi tiến trình API.
 * Timeout mỗi request 15s. Lỗi mạng tạm thời (timeout, 502/503/504) thử lại tối đa 2 lần (backoff 5s → 15s) trước khi ghi nhận lỗi.
 
 ### 3.5. Cảnh báo (Telegram)
 
 * **Ngưỡng:** mỗi đối tác có `warning_threshold` và `critical_threshold` (VNĐ). Mức hiện tại: `OK` / `WARNING` / `CRITICAL`.
-* **Kênh:** một Telegram bot + một chat ID dùng chung, cấu hình qua env (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`).
+* **Kênh:** một Telegram bot + một chat ID dùng chung, cấu hình trên trang **Kênh thông báo** (bot token mã hoá trong DB, có nút Gửi tin thử). Biến môi trường `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` chỉ là dự phòng khi chưa lưu gì trên trang.
 * **Quy tắc gửi** (so mức mới với `alert_level` đã lưu trên đối tác):
   * Mức xấu đi (`OK → WARNING`, `→ CRITICAL`): gửi ngay.
   * Vẫn ở `WARNING` / `CRITICAL`: nhắc lại sau mỗi `cooldown_minutes` (mặc định 60).
@@ -108,7 +109,7 @@ Engine đã có ở commit `646949a` (`src/modules/provider-adapter/infrastructu
 
 * **Thẻ chỉ số:** Tổng số dư (VNĐ), số đối tác đang `WARNING` / `CRITICAL`, số đối tác đang lỗi kết nối.
 * **Bảng đối tác:** số dư hiện tại, mức cảnh báo, lần kiểm tra gần nhất, trạng thái lần gần nhất.
-* **Biểu đồ đường:** số dư theo thời gian, lọc 24h / 7 ngày / 30 ngày, chọn đối tác.
+* **Biểu đồ đường:** số dư theo thời gian, chọn khoảng 5 / 15 / 30 / 60 phút, 3 / 12 / 24 giờ, 7 / 30 ngày, chọn đối tác.
 
 ### 3.8. Lịch sử kiểm tra
 
@@ -176,26 +177,44 @@ erDiagram
 ## 5. KẾ HOẠCH TRIỂN KHAI
 
 ### Giai đoạn 1: Dữ liệu & đối tác
-- [ ] Drizzle schema `providers`, `balance_checks` + migration.
-- [ ] CRUD API đối tác, mã hoá secrets bằng `AesGcmSecretCipher`, không trả secrets về client.
-- [ ] Thêm permission `Provider`, `BalanceCheck` vào `seed-permissions.ts`.
+- [x] Drizzle schema `providers`, `balance_checks` + migration.
+- [x] CRUD API đối tác, mã hoá secrets bằng `AesGcmSecretCipher`, không trả secrets về client.
+- [x] Thêm permission `Provider`, `BalanceCheck` vào `seed-permissions.ts`.
 
 ### Giai đoạn 2: Engine & Thử kết nối
-- [ ] Port từ `646949a`: `http-config.template`, `.engine`, `.token-manager`, `.validation`, `.types`, `destination-guard`, Redis token store — bỏ phần đơn hàng, giữ test tương ứng (`template`, `signature`, `token-manager`, `balance`, `validation`).
-- [ ] Thêm hệ số đơn vị vào bước đọc số dư.
-- [ ] API `POST /admin/providers/test-connection` (nhận cấu hình đang soạn, trả kết quả từng bước, đã che secrets).
+- [x] Port từ `646949a`: `http-config.template`, `.engine`, `.token-manager`, `.validation`, `.types`, `destination-guard`, Redis token store — bỏ phần đơn hàng, giữ test tương ứng (`template`, `signature`, `token-manager`, `balance`, `validation`).
+- [x] Thêm hệ số đơn vị vào bước đọc số dư.
+- [x] API `POST /admin/providers/test-connection` (nhận cấu hình đang soạn, trả kết quả từng bước, đã che secrets).
+- [x] API `POST /admin/providers/:id/check` (Kiểm tra ngay: ghi lịch sử và áp quy tắc cảnh báo như lượt quét nền).
+- [x] Gọi thử từng API (`scope: login | balance`) kể cả khi chưa khai báo đường dẫn token / số dư; lưu phản hồi làm payload mẫu (`PUT /admin/providers/:id/samples`) và bấm chọn trường từ payload cho các ô đường dẫn.
 
 ### Giai đoạn 3: Lập lịch & cảnh báo
-- [ ] Job scheduler BullMQ theo `interval_minutes`, đồng bộ khi tạo/sửa/tạm dừng/xoá đối tác.
-- [ ] Ghi `balance_checks`, cập nhật trạng thái trên `providers`.
-- [ ] Telegram notifier + quy tắc mức cảnh báo, cooldown, phục hồi, lỗi kết nối.
-- [ ] Job dọn `balance_checks` > 90 ngày.
+- [x] Job scheduler BullMQ theo `interval_minutes`, đồng bộ khi tạo/sửa/tạm dừng/xoá đối tác.
+- [x] Ghi `balance_checks`, cập nhật trạng thái trên `providers`.
+- [x] Telegram notifier + quy tắc mức cảnh báo, cooldown, phục hồi, lỗi kết nối.
+- [x] Job dọn `balance_checks` > 90 ngày.
 
 ### Giai đoạn 4: Giao diện web
-- [ ] Danh sách đối tác + form thêm/sửa (thông tin chung, ngưỡng, chu kỳ, secrets).
-- [ ] Form cấu hình API (request, auth, token, chữ ký, điều kiện thành công, path số dư) + panel Thử kết nối.
-- [ ] Dashboard: thẻ chỉ số, bảng đối tác, biểu đồ đường.
-- [ ] Màn hình lịch sử kiểm tra.
+- [x] Danh sách đối tác + form thêm/sửa (thông tin chung, ngưỡng, chu kỳ, secrets).
+- [x] Form cấu hình API (request, auth, token, chữ ký, điều kiện thành công, path số dư) + panel Thử kết nối.
+- [x] Dashboard: thẻ chỉ số, bảng đối tác, biểu đồ đường.
+- [x] Màn hình lịch sử kiểm tra.
+
+---
+
+- [x] Nhiều Base URL cho một đối tác (`config.hosts`, mỗi request chọn theo `host`).
+- [x] Trang Kênh thông báo: cấu hình Telegram trên giao diện (`alert_channels`), gửi tin thử.
+- [x] Chu kỳ quét mặc định 5 phút.
+
+### Ghi chú triển khai
+
+* Code backend ở `src/modules/provider/`; engine được viết gọn lại từ `646949a` chỉ còn hai lời gọi `login` và `balance`, một cấu hình chữ ký thay cho danh sách quy tắc.
+* Mọi đường dẫn đọc phản hồi (token, hạn token, số dư, mã lỗi) đều có tiền tố `body.`, `http.` hoặc `headers.`.
+* Đối tác mới tạo ở trạng thái `PAUSED`; chỉ bật `ACTIVE` được khi cấu hình API đã đủ.
+* Cột `alert_level` lưu mức cảnh báo đã gửi; mức hiển thị trên giao diện tính từ số dư hiện tại và hai ngưỡng.
+* Đổi từ `CRITICAL` lên `WARNING` (số dư tăng nhưng chưa an toàn) cũng gửi một tin ở mức mới.
+* Lỗi kết nối kéo dài được nhắc lại sau mỗi `cooldown_minutes`.
+* Chi tiết API: [API.md](./API.md) mục 14. Biến môi trường: [CONFIGURATION.md](./CONFIGURATION.md).
 
 ---
 

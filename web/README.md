@@ -39,7 +39,9 @@ src/
 │   ├── (auth)/login             Màn hình đăng nhập
 │   ├── (app)/                   Khu vực cần đăng nhập: layout server nạp sẵn phiên + abilities
 │   │   ├── page.tsx             Bảng điều khiển
-│   │   ├── suppliers/[id]       Danh sách, chi tiết, cấu hình nhà cung cấp và đơn hàng
+│   │   ├── providers/[id]       Danh sách đối tác, cấu hình API số dư, thử kết nối
+│   │   ├── history              Lịch sử kiểm tra số dư
+│   │   ├── notifications        Cấu hình kênh thông báo Telegram
 │   │   ├── users                Quản lý người dùng
 │   │   └── access               Vai trò, danh mục quyền, ma trận phân quyền
 │   └── api/

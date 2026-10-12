@@ -12,6 +12,20 @@ export const POLICIES = {
   access: {
     manage: ["manage", "all"] as Policy,
   },
+  providers: {
+    view: ["read", "Provider"] as Policy,
+    create: ["create", "Provider"] as Policy,
+    update: ["update", "Provider"] as Policy,
+    remove: ["delete", "Provider"] as Policy,
+    configure: ["manage", "Provider"] as Policy,
+  },
+  balanceChecks: {
+    view: ["read", "BalanceCheck"] as Policy,
+  },
+  alertChannels: {
+    view: ["read", "AlertChannel"] as Policy,
+    update: ["update", "AlertChannel"] as Policy,
+  },
 } as const;
 
 export const STANDARD_ACTIONS: PolicyAction[] = ["manage", "create", "read", "update", "delete"];
@@ -29,6 +43,9 @@ export const SUBJECT_LABELS: Record<string, string> = {
   User: "Người dùng",
   Role: "Vai trò",
   Permission: "Quyền hạn",
+  Provider: "Đối tác",
+  BalanceCheck: "Lịch sử số dư",
+  AlertChannel: "Kênh thông báo",
 };
 
 export function actionLabel(action: string): string {

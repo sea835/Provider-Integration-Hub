@@ -54,6 +54,19 @@ Sinh secret ngẫu nhiên:
 openssl rand -base64 48
 ```
 
+### Giám sát số dư
+
+| Biến | Mặc định | Mô tả |
+|---|---|---|
+| `REDIS_URL` | `redis://localhost:6379` | Redis cho lịch quét (BullMQ) và kho token đăng nhập đối tác. API và worker phải dùng chung |
+| `APP_ENCRYPTION_KEY` | **Bắt buộc** | Khoá 32 byte base64 để mã hoá bí mật của đối tác và token đăng nhập |
+| `TELEGRAM_BOT_TOKEN` | *(trống)* | Token bot Telegram gửi cảnh báo (dự phòng, xem dưới) |
+| `TELEGRAM_CHAT_ID` | *(trống)* | Id nhóm / kênh nhận cảnh báo (dự phòng, xem dưới) |
+
+Kênh Telegram được cấu hình trên giao diện, trang **Kênh thông báo** (lưu ở bảng `alert_channels`, token mã hoá). Hai biến môi trường trên chỉ được dùng khi chưa lưu gì trên trang đó. Chưa cấu hình ở cả hai nơi, hoặc đang tắt kênh, thì hệ thống vẫn quét và ghi lịch sử nhưng không gửi cảnh báo.
+
+Việc quét theo lịch chạy trong tiến trình worker riêng: `npm run start:worker` (dev: `npm run start:worker:dev`, production: `npm run start:worker:prod`). Chỉ chạy API thì đối tác không được quét tự động (job nằm chờ trong hàng đợi cho tới khi có worker); nút Kiểm tra ngay và Thử kết nối vẫn dùng được.
+
 ### Tạo ADMIN đầu tiên (chỉ script)
 
 Chỉ lệnh `npm run db:seed:admin` (hoặc `node dist/infrastructure/database/seed-admin.js`) đọc hai biến này — app **không** đọc.
@@ -119,6 +132,12 @@ Các giá trị sau chưa đọc từ biến môi trường. Muốn đổi phả
 | Đường dẫn Swagger | `/docs` (luôn bật) | `src/main.ts` |
 | CORS | Cho phép mọi origin | `src/main.ts` |
 | Helmet | Tắt Content-Security-Policy | `src/main.ts` |
+| Thời gian chờ mỗi lời gọi tới đối tác | 15 000 ms | `src/modules/provider/infrastructure/http-config/http-config.balance-probe.ts` |
+| Thử lại khi lỗi mạng tạm thời (timeout, 502/503/504) | 2 lần, sau 5 giây rồi 15 giây | `src/modules/provider/infrastructure/balance-check.queue.ts` |
+| Số job quét chạy song song | 5 | `src/modules/provider/infrastructure/balance-check.worker.ts` |
+| Trừ hao hạn token đăng nhập đối tác | 60 giây | `src/modules/provider/infrastructure/http-config/http-config.token-manager.ts` |
+| Số lần lỗi liên tiếp thì báo lỗi kết nối | 3 | `src/modules/provider/domain/provider-status.ts` |
+| Giữ lịch sử kiểm tra | 90 ngày, dọn lúc 03:15 hằng ngày | `provider-status.ts`, `balance-check.queue.ts` |
 | Thư mục migration | `./drizzle/migrations` (tương đối với thư mục chạy lệnh) | `drizzle.config.ts`, `migrate.ts` |
 
 ---

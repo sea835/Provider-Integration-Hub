@@ -66,6 +66,7 @@ INFO    [SYS][NestApplication] Nest application successfully started
 |---|---|
 | `npm run start:dev` | Chạy có watch |
 | `npm run start:debug` | Chạy có watch + Node inspector (cổng 9229) |
+| `npm run start:worker:dev` | Chạy worker quét số dư có watch (cần Redis) |
 | `npm run build` | Build ra `dist/` |
 | `npm run start:prod` | Chạy bản build `node dist/main` |
 | `npm run lint` | ESLint **có tự sửa** (`--fix`) |
@@ -79,6 +80,7 @@ INFO    [SYS][NestApplication] Nest application successfully started
 | `npm run db:push` | Đẩy schema thẳng lên DB, không sinh migration (chỉ thử nghiệm) |
 | `npm run db:studio` | Giao diện xem dữ liệu |
 | `npm run db:seed:admin` | Tạo / nâng quyền tài khoản ADMIN (cần `ADMIN_EMAIL`, `ADMIN_PASSWORD`) |
+| `npm run db:seed:permissions` | Tạo role, permission mặc định (gồm `Provider`, `BalanceCheck`); chạy lại nhiều lần an toàn |
 | `npx tsc --noEmit` | Kiểm tra kiểu (xem lưu ý ở mục 5) |
 
 ---

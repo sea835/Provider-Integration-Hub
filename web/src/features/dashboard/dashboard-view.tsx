@@ -1,72 +1,71 @@
 "use client";
 
-import { ArrowRight, ShieldCheck, UserPlus, UsersThree } from "@phosphor-icons/react/ssr";
+import { ArrowRight, Wallet, Warning, WifiSlash } from "@phosphor-icons/react/ssr";
 import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { StatCard, type Stat } from "@/components/ui/stat-card";
-import { usePermissions, useRoles } from "@/features/access/hooks";
 import { usePermission, useSession } from "@/features/auth/session-provider";
+import { useProviders } from "@/features/providers/hooks";
+import { summarize } from "@/features/providers/providers-view";
 import { HEALTH_COPY, useHealth } from "@/features/system/use-health";
-import { ACTIVE_STATUS, roleMeta } from "@/features/users/constants";
-import { useUsers } from "@/features/users/hooks";
+import { roleMeta } from "@/features/users/constants";
 import { POLICIES } from "@/lib/auth/policies";
-import { formatNumber } from "@/lib/format";
+import { formatMoney, formatNumber } from "@/lib/format";
+import { BalanceChartCard } from "./balance-chart-card";
 import { displayName, greetingFor, longDate } from "./greeting";
-import { GrowthChartCard } from "./growth-chart-card";
 import { HealthCard } from "./health-card";
 import { MyPermissionsCard } from "./my-permissions-card";
-import { RecentUsersCard } from "./recent-users-card";
-import { RoleRingsCard } from "./role-rings-card";
-import { WeeklySignupsCard } from "./weekly-signups-card";
-
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+import { ProviderStatusCard } from "./provider-status-card";
 
 export function DashboardView() {
   const { user } = useSession();
-  const canViewUsers = usePermission(POLICIES.users.view);
-  const canManageAccess = usePermission(POLICIES.access.manage);
+  const canViewProviders = usePermission(POLICIES.providers.view);
+  const canViewBalances = usePermission(POLICIES.balanceChecks.view);
 
   const health = useHealth();
-  const users = useUsers(canViewUsers);
-  const roles = useRoles(canManageAccess);
-  const permissions = usePermissions(canManageAccess);
+  const providers = useProviders(canViewProviders);
 
   const now = new Date();
   const role = roleMeta(user.role);
   const healthCopy = health.data ? HEALTH_COPY[health.data.level] : null;
-  const list = users.data ?? [];
-  const newThisWeek = list.filter((item) => now.getTime() - new Date(item.createdAt).getTime() < WEEK_MS).length;
-  const activeCount = list.filter((item) => item.status === ACTIVE_STATUS).length;
+  const balances = summarize(providers.data ?? []);
+  const needTopUp = balances.warning + balances.critical;
 
   const summary = [
     healthCopy ? `Hệ thống ${healthCopy.label.toLowerCase()}.` : "Đang kiểm tra hệ thống.",
-    canViewUsers && users.data ? `Có ${formatNumber(newThisWeek)} tài khoản mới trong 7 ngày qua.` : null,
+    canViewProviders && providers.data
+      ? needTopUp > 0
+        ? `Có ${formatNumber(needTopUp)} đối tác cần nạp tiền.`
+        : providers.data.length > 0 && providers.data.every((provider) => provider.currentBalance !== null)
+          ? "Số dư mọi đối tác đang trên ngưỡng."
+          : null
+      : null,
+    canViewProviders && balances.failing > 0 ? `${formatNumber(balances.failing)} đối tác đang lỗi kết nối.` : null,
   ]
     .filter(Boolean)
     .join(" ");
 
   const stats: Stat[] = [
     {
-      label: "Đang hoạt động",
-      value: users.data ? formatNumber(activeCount) : "-",
-      icon: UsersThree,
-      hint: users.data ? `${formatNumber(list.length - activeCount)} tài khoản bị khóa hoặc vô hiệu` : undefined,
+      label: "Tổng số dư",
+      value: providers.data && balances.hasBalance ? formatMoney(balances.total) : "-",
+      icon: Wallet,
+      hint: providers.data ? `${formatNumber(providers.data.length)} đối tác, ${balances.active} đang quét` : undefined,
     },
-    canManageAccess
-      ? {
-          label: "Vai trò",
-          value: roles.data ? formatNumber(roles.data.length) : "-",
-          icon: ShieldCheck,
-          tone: "success",
-          hint: permissions.data ? `${formatNumber(permissions.data.length)} quyền hạn trong danh mục` : undefined,
-        }
-      : {
-          label: "Mới trong 7 ngày",
-          value: users.data ? formatNumber(newThisWeek) : "-",
-          icon: UserPlus,
-          tone: "success",
-        },
+    {
+      label: "Cần nạp tiền",
+      value: providers.data ? formatNumber(needTopUp) : "-",
+      icon: Warning,
+      tone: needTopUp > 0 ? "danger" : "success",
+      hint: providers.data ? `${balances.critical} khẩn cấp, ${balances.warning} sắp hết` : undefined,
+    },
+    {
+      label: "Lỗi kết nối",
+      value: providers.data ? formatNumber(balances.failing) : "-",
+      icon: WifiSlash,
+      tone: balances.failing > 0 ? "danger" : "success",
+    },
   ];
 
   return (
@@ -76,10 +75,10 @@ export function DashboardView() {
         title={`${greetingFor(now)}, ${displayName(user.email)}!`}
         description={summary}
         actions={
-          canViewUsers ? (
+          canViewProviders ? (
             <Button asChild variant="inverse" size="sm">
-              <Link href="/users">
-                Quản lý người dùng
+              <Link href="/providers">
+                Quản lý đối tác
                 <ArrowRight aria-hidden />
               </Link>
             </Button>
@@ -89,24 +88,23 @@ export function DashboardView() {
         }
       />
 
-      {canViewUsers ? (
+      {canViewProviders ? (
         <>
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_288px]">
-            <GrowthChartCard users={users.data} isPending={users.isPending} now={now} />
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+            {canViewBalances ? (
+              <BalanceChartCard providers={providers.data} isPending={providers.isPending} now={now} />
+            ) : (
+              <ProviderStatusCard providers={providers.data} isPending={providers.isPending} />
+            )}
+            <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-1">
               {stats.map((stat) => (
                 <StatCard key={stat.label} {...stat} />
               ))}
             </div>
           </div>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_288px]">
-            <RoleRingsCard users={users.data} isPending={users.isPending} />
-            <WeeklySignupsCard users={users.data} isPending={users.isPending} now={now} />
-            <HealthCard className="md:col-span-2 xl:col-span-1" />
-          </div>
           <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_288px]">
-            <RecentUsersCard users={users.data} isPending={users.isPending} />
-            <MyPermissionsCard />
+            {canViewBalances ? <ProviderStatusCard providers={providers.data} isPending={providers.isPending} /> : null}
+            <HealthCard className={canViewBalances ? undefined : "xl:col-start-2"} />
           </div>
         </>
       ) : (

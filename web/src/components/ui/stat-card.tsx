@@ -37,7 +37,14 @@ export function StatCard({
         <Icon className="size-5" weight="fill" />
       </span>
       <div className="min-w-0">
-        <p className="text-[26px] leading-none font-bold tracking-tight">{value}</p>
+        <p
+          className={cn(
+            "leading-none font-bold tracking-tight",
+            typeof value === "string" && value.length > 9 ? "text-xl" : "text-[26px]",
+          )}
+        >
+          {value}
+        </p>
         <p className="mt-2 text-sm leading-tight font-medium text-primary">{label}</p>
         {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
       </div>

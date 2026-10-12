@@ -112,12 +112,76 @@ xoá user                    ──► DELETE (cascade)
 
 ---
 
+### 4.3. `providers`
+
+Schema: `src/modules/provider/infrastructure/provider.schema.ts`
+
+Mỗi bản ghi là một **đối tác** cần giám sát số dư: cấu hình gọi API, ngưỡng cảnh báo và trạng thái lần kiểm tra gần nhất.
+
+| Cột | Kiểu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| *baseSchema* | | | `status`: `ACTIVE` (đang quét) / `PAUSED`, mặc định `PAUSED` |
+| `code` | `varchar(50)` | not null, unique | Mã đối tác, vd `VIETTEL_DATA` |
+| `name` | `varchar(255)` | not null | Tên hiển thị |
+| `config` | `jsonb` | not null | Base URL mặc định, các Base URL có tên (`hosts`), biến và spec gọi API (xác thực, token, chữ ký, API số dư). Luôn được chuẩn hoá khi đọc nên bản ghi cũ thiếu trường mới vẫn dùng được |
+| `samples` | `jsonb` | | Phản hồi mẫu của API đăng nhập / số dư (đã che bí mật), dùng để chọn trường khi cấu hình |
+| `encrypted_secrets` | `text` | | Bí mật đã mã hoá AES-256-GCM (`APP_ENCRYPTION_KEY`) |
+| `unit_multiplier` | `numeric(20,6)` | not null, default `1` | Hệ số nhân để quy số dư về VNĐ |
+| `interval_minutes` | `integer` | not null, default `5` | Chu kỳ quét: 5 / 15 / 30 / 60 |
+| `warning_threshold` | `numeric(20,2)` | | Ngưỡng cảnh báo sớm (VNĐ) |
+| `critical_threshold` | `numeric(20,2)` | | Ngưỡng khẩn cấp (VNĐ) |
+| `cooldown_minutes` | `integer` | not null, default `60` | Khoảng cách giữa hai lần nhắc cùng một mức |
+| `current_balance` | `numeric(20,2)` | | Số dư đọc được ở lần thành công gần nhất |
+| `alert_level` | `varchar(20)` | not null, default `OK` | Mức cảnh báo số dư **đã gửi** gần nhất |
+| `alert_sent_at` | `timestamp` | | Thời điểm gửi cảnh báo số dư gần nhất |
+| `consecutive_failures` | `integer` | not null, default `0` | Số lần kiểm tra lỗi liên tiếp |
+| `last_checked_at` | `timestamp` | | Thời điểm kiểm tra gần nhất |
+| `last_status` | `varchar(20)` | | `SUCCESS` / `FAILED` |
+
+`alert_level` là trạng thái của bộ cảnh báo, không phải mức hiển thị: API tính mức hiển thị từ `current_balance` và hai ngưỡng. Khi Telegram gửi lỗi, `alert_level` giữ nguyên để lượt quét sau gửi lại.
+
+### 4.4. `balance_checks`
+
+Mỗi lần kiểm tra số dư (quét nền hoặc Kiểm tra ngay), thành công hay lỗi, ghi một dòng. Dùng cho biểu đồ và tra cứu lỗi. Không dùng `baseSchema`.
+
+| Cột | Kiểu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| `id` | `uuid` | PK (UUIDv7) | |
+| `provider_id` | `uuid` | not null, FK → `providers.id` `ON DELETE CASCADE` | Đối tác |
+| `status` | `varchar(20)` | not null | `SUCCESS` / `FAILED` |
+| `balance` | `numeric(20,2)` | | Số dư (VNĐ), null khi lỗi |
+| `http_status` | `integer` | | HTTP status của API số dư |
+| `latency_ms` | `integer` | | Thời gian phản hồi |
+| `error_code` | `varchar(50)` | | Mã lỗi của Hub hoặc của đối tác |
+| `error_message` | `text` | | Thông điệp lỗi |
+| `checked_at` | `timestamp` | not null, default `now()` | Thời điểm kiểm tra |
+
+Job `cleanup` của worker chạy 03:15 hằng ngày, xoá dòng cũ hơn 90 ngày.
+
+### 4.5. `alert_channels`
+
+Schema: `src/modules/provider/infrastructure/alert-channel.schema.ts`
+
+Cấu hình kênh gửi cảnh báo, mỗi loại kênh một dòng (v1 chỉ có `TELEGRAM`). Chưa có dòng nào thì hệ thống dùng biến môi trường.
+
+| Cột | Kiểu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| *baseSchema* | | | |
+| `type` | `varchar(30)` | not null, unique | `TELEGRAM` |
+| `enabled` | `boolean` | not null, default `true` | Tắt thì không gửi cảnh báo |
+| `config` | `jsonb` | not null | Phần không bí mật, vd `{ "chatId": "-100..." }` |
+| `encrypted_secrets` | `text` | | Bot token đã mã hoá AES-256-GCM |
+
+---
+
 ## 5. Index Và Hiệu Năng
 
 | Bảng | Index hiện có | Truy vấn thường gặp | Đề xuất |
 |---|---|---|---|
 | `users` | PK `id`, unique `email` | `WHERE email = ?`, `WHERE id = ?`, `ORDER BY created_at DESC LIMIT/OFFSET` | Index `created_at` khi bảng lớn |
 | `sessions` | PK `id` | `WHERE id = ? AND is_revoked = false AND expires_at > now()`, `UPDATE ... WHERE user_id = ?` | **Index `user_id`** (PostgreSQL không tự tạo index cho FK) |
+| `providers` | PK `id`, unique `code` | `WHERE id = ?`, `WHERE status = 'ACTIVE'`, đọc cả bảng (số lượng nhỏ) | Chưa cần thêm |
+| `balance_checks` | PK `id`, `(provider_id, checked_at DESC)` | Lịch sử và biểu đồ theo đối tác và khoảng thời gian | Lọc mọi đối tác theo thời gian trên bảng lớn: thêm index `checked_at` |
 
 Bảng `sessions` **chỉ tăng**: mỗi lần login/refresh thêm một dòng, không có job xoá phiên đã hết hạn hoặc đã thu hồi. Đề xuất job định kỳ:
 
@@ -135,6 +199,10 @@ Phân trang dùng `LIMIT/OFFSET` — chậm dần ở trang sâu. Khi cần, chu
 |---|---|---|
 | `20260924044935_good_thunderbird` | Đã commit | Tạo bảng `users` (chưa có `role`) |
 | `20260924092202_huge_firebird` | Đã commit | Tạo bảng `sessions`; thêm cột `users.role`; FK `sessions.user_id → users.id` |
+
+| `20261012023437_balance_monitoring` | Chưa commit | Tạo bảng `providers`, `balance_checks`, index `(provider_id, checked_at DESC)` |
+| `20261012030643_provider_samples` | Chưa commit | Thêm cột `providers.samples` |
+| `20261012032111_alert_channels` | Chưa commit | Tạo bảng `alert_channels`; đổi mặc định `providers.interval_minutes` thành 5 |
 
 Phân quyền theo role và health check không thay đổi schema (không có migration mới).
 

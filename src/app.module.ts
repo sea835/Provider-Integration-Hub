@@ -7,6 +7,7 @@ import { UserModule } from '@modules/user/user.module';
 import { AuthenticationModule } from '@modules/authentication/authentication.module';
 import { AuthorizationModule } from '@modules/authorization/authorization.module';
 import { HealthModule } from '@modules/health/health.module';
+import { ProviderModule } from '@modules/provider/provider.module';
 import { JwtAuthGuard } from '@modules/authentication/presentation/guards/jwt-auth.guard';
 import { PoliciesGuard } from '@modules/authorization/presentation/guards/policies.guard';
 import { GlobalExceptionFilter } from '@common/filters/global-exception.filter';
@@ -29,6 +30,7 @@ import { QueueModule } from '@infrastructure/queue/queue.module';
     AuthenticationModule,
     AuthorizationModule,
     HealthModule,
+    ProviderModule,
   ],
   controllers: [],
   providers: [

@@ -4,6 +4,7 @@ import { ArrowRight, UserPlus } from "@phosphor-icons/react/ssr";
 import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/states";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -15,11 +16,9 @@ export function RecentUsersCard({ users, isPending }: { users: User[] | undefine
   const recent = [...(users ?? [])].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 6);
 
   return (
-    <section aria-labelledby="recent-users" className="min-w-0 space-y-3">
+    <Card className="min-w-0 space-y-3 p-4 sm:p-5">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 id="recent-users" className="text-[15px] font-bold tracking-tight">
-          Tài khoản mới
-        </h2>
+        <h2 className="text-base leading-tight font-semibold tracking-tight">Tài khoản mới</h2>
         <Link
           href="/users"
           className="inline-flex items-center gap-1 text-[13px] font-semibold text-primary hover:underline"
@@ -52,7 +51,7 @@ export function RecentUsersCard({ users, isPending }: { users: User[] | undefine
               const status = statusMeta(user.status);
               return (
                 <TableRow key={user.id}>
-                  <TableCell className="max-w-[320px]">
+                  <TableCell className="w-full max-w-0">
                     <span className="flex min-w-0 items-center gap-2.5">
                       <Avatar name={user.email} className="size-7" />
                       <span className="truncate font-medium" title={user.email}>
@@ -77,6 +76,6 @@ export function RecentUsersCard({ users, isPending }: { users: User[] | undefine
           </TableBody>
         </Table>
       )}
-    </section>
+    </Card>
   );
 }

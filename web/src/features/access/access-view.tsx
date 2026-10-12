@@ -13,7 +13,7 @@ import {
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { PageBanner } from "@/components/layout/page-banner";
+import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -167,14 +167,19 @@ export function AccessView() {
   const loadError = rolesQuery.error ?? permissionsQuery.error;
 
   return (
-    <div className="space-y-6">
-      <PageBanner
+    <div className="flex flex-col gap-5">
+      <PageHeader
         eyebrow="Quản trị"
         title="Phân quyền"
         description="Quản lý vai trò, danh mục quyền hạn và gán quyền theo ma trận đối tượng và hành động."
         stats={[
-          { label: "Vai trò", value: rolesQuery.data ? roles.length : "-" },
-          { label: "Quyền hạn", value: permissionsQuery.data ? permissions.length : "-" },
+          { label: "Vai trò", value: rolesQuery.data ? roles.length : "-", icon: ShieldCheck },
+          {
+            label: "Quyền hạn",
+            value: permissionsQuery.data ? permissions.length : "-",
+            icon: ListChecks,
+            tone: "success",
+          },
         ]}
         actions={
           <>
@@ -204,9 +209,7 @@ export function AccessView() {
             <ListChecks aria-hidden />
             Danh mục quyền hạn
             {permissionsQuery.data ? (
-              <span className="rounded-sm bg-muted px-1.5 text-[11px] text-muted-foreground tabular-nums">
-                {permissions.length}
-              </span>
+              <span className="rounded-full bg-current/15 px-1.5 text-[11px] tabular-nums">{permissions.length}</span>
             ) : null}
           </TabsTrigger>
         </TabsList>
@@ -383,7 +386,7 @@ export function AccessView() {
                 </div>
 
                 {!isAdminRole ? (
-                  <div className="sticky bottom-0 flex flex-col gap-3 rounded-b-lg bg-card/95 px-4 py-2.5 shadow-[0_-6px_12px_-8px_hsl(var(--shadow-color)/0.35)] backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+                  <div className="sticky bottom-0 flex flex-col gap-3 rounded-b-xl bg-card/95 px-4 py-2.5 shadow-[0_-6px_12px_-8px_hsl(var(--shadow-color)/0.35)] backdrop-blur sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-[13px] text-muted-foreground" aria-live="polite">
                       {dirty ? (
                         <span className="font-medium text-warning">{changes} thay đổi chưa lưu</span>

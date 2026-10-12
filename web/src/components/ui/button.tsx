@@ -11,13 +11,14 @@ export const buttonVariants = cva(
       variant: {
         default: "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90",
         secondary: "bg-secondary text-secondary-foreground hover:bg-accent",
-        outline: "bg-card text-foreground shadow-xs hover:bg-accent hover:text-accent-foreground",
+        outline:
+          "bg-card text-foreground shadow-[inset_0_0_0_1px_var(--color-border)] hover:bg-accent hover:text-accent-foreground",
         ghost: "text-foreground hover:bg-accent hover:text-accent-foreground",
         destructive: "bg-danger text-white shadow-xs hover:bg-danger/90",
         "destructive-ghost": "text-danger hover:bg-danger-soft",
         link: "h-auto px-0 text-primary underline-offset-4 hover:underline",
-        inverse: "bg-hero-foreground text-hero shadow-xs hover:bg-hero-foreground/90",
-        "inverse-ghost": "text-hero-foreground hover:bg-white/10",
+        inverse: "bg-white text-[#3a14ab] shadow-xs outline-white hover:bg-white/90",
+        "inverse-ghost": "text-hero-foreground outline-white hover:bg-white/15",
       },
       size: {
         sm: "h-8 px-2.5 text-[13px]",

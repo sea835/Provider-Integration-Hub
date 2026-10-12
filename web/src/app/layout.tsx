@@ -1,12 +1,13 @@
 import type { Metadata, Viewport } from "next";
-import { JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
+import { Be_Vietnam_Pro, JetBrains_Mono } from "next/font/google";
 import type { ReactNode } from "react";
 import { AppProviders } from "@/components/providers/app-providers";
 import "./globals.css";
 
-const sans = Plus_Jakarta_Sans({
+const sans = Be_Vietnam_Pro({
   subsets: ["latin", "vietnamese"],
-  variable: "--font-jakarta",
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-bevietnam",
   display: "swap",
 });
 
@@ -24,8 +25,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#0d0b0b" },
+    { media: "(prefers-color-scheme: light)", color: "#3f64d6" },
+    { media: "(prefers-color-scheme: dark)", color: "#120c2e" },
   ],
 };
 

@@ -22,7 +22,7 @@ export function ThemeToggle() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Chọn giao diện">
+        <Button variant="inverse-ghost" size="icon" className="glass-chip rounded-full" aria-label="Chọn giao diện">
           <Sun className="block dark:hidden" aria-hidden />
           <Moon className="hidden dark:block" aria-hidden />
         </Button>

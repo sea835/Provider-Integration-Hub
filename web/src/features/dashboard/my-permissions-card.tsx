@@ -38,7 +38,12 @@ export function MyPermissionsCard() {
             quyền.
           </CardDescription>
         </div>
-        <Key className="size-4 text-muted-foreground" aria-hidden />
+        <span
+          className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary"
+          aria-hidden
+        >
+          <Key className="size-4" weight="fill" />
+        </span>
       </CardHeader>
       <CardContent>
         {entries.length === 0 ? (

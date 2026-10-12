@@ -60,7 +60,7 @@ export function PermissionCatalog() {
   }, [permissions, term]);
 
   return (
-    <Card tone="plain">
+    <Card className="p-4">
       <div className="flex flex-col gap-2 pb-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <MagnifyingGlass

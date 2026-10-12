@@ -1,21 +1,24 @@
 "use client";
 
-import { ArrowRight } from "@phosphor-icons/react/ssr";
+import { ArrowRight, ShieldCheck, UserPlus, UsersThree } from "@phosphor-icons/react/ssr";
 import Link from "next/link";
-import { PageBanner, type BannerStat } from "@/components/layout/page-banner";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
+import { StatCard, type Stat } from "@/components/ui/stat-card";
 import { usePermissions, useRoles } from "@/features/access/hooks";
 import { usePermission, useSession } from "@/features/auth/session-provider";
 import { HEALTH_COPY, useHealth } from "@/features/system/use-health";
-import { roleMeta } from "@/features/users/constants";
+import { ACTIVE_STATUS, roleMeta } from "@/features/users/constants";
 import { useUsers } from "@/features/users/hooks";
 import { POLICIES } from "@/lib/auth/policies";
 import { formatNumber } from "@/lib/format";
 import { displayName, greetingFor, longDate } from "./greeting";
+import { GrowthChartCard } from "./growth-chart-card";
 import { HealthCard } from "./health-card";
 import { MyPermissionsCard } from "./my-permissions-card";
 import { RecentUsersCard } from "./recent-users-card";
-import { RoleDistributionCard } from "./role-distribution-card";
+import { RoleRingsCard } from "./role-rings-card";
+import { WeeklySignupsCard } from "./weekly-signups-card";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -32,9 +35,9 @@ export function DashboardView() {
   const now = new Date();
   const role = roleMeta(user.role);
   const healthCopy = health.data ? HEALTH_COPY[health.data.level] : null;
-  const newThisWeek = (users.data ?? []).filter(
-    (item) => now.getTime() - new Date(item.createdAt).getTime() < WEEK_MS,
-  ).length;
+  const list = users.data ?? [];
+  const newThisWeek = list.filter((item) => now.getTime() - new Date(item.createdAt).getTime() < WEEK_MS).length;
+  const activeCount = list.filter((item) => item.status === ACTIVE_STATUS).length;
 
   const summary = [
     healthCopy ? `Hệ thống ${healthCopy.label.toLowerCase()}.` : "Đang kiểm tra hệ thống.",
@@ -43,20 +46,35 @@ export function DashboardView() {
     .filter(Boolean)
     .join(" ");
 
-  const stats: BannerStat[] = [];
-  if (canViewUsers) stats.push({ label: "Người dùng", value: users.data ? formatNumber(users.data.length) : "-" });
-  if (canManageAccess) {
-    stats.push({ label: "Vai trò", value: roles.data ? formatNumber(roles.data.length) : "-" });
-    stats.push({ label: "Quyền hạn", value: permissions.data ? formatNumber(permissions.data.length) : "-" });
-  }
+  const stats: Stat[] = [
+    {
+      label: "Đang hoạt động",
+      value: users.data ? formatNumber(activeCount) : "-",
+      icon: UsersThree,
+      hint: users.data ? `${formatNumber(list.length - activeCount)} tài khoản bị khóa hoặc vô hiệu` : undefined,
+    },
+    canManageAccess
+      ? {
+          label: "Vai trò",
+          value: roles.data ? formatNumber(roles.data.length) : "-",
+          icon: ShieldCheck,
+          tone: "success",
+          hint: permissions.data ? `${formatNumber(permissions.data.length)} quyền hạn trong danh mục` : undefined,
+        }
+      : {
+          label: "Mới trong 7 ngày",
+          value: users.data ? formatNumber(newThisWeek) : "-",
+          icon: UserPlus,
+          tone: "success",
+        },
+  ];
 
   return (
-    <div className="space-y-7">
-      <PageBanner
+    <div className="flex flex-col gap-5">
+      <PageHeader
         eyebrow={<span suppressHydrationWarning>{longDate(now)}</span>}
-        title={`${greetingFor(now)}, ${displayName(user.email)}`}
+        title={`${greetingFor(now)}, ${displayName(user.email)}!`}
         description={summary}
-        stats={stats}
         actions={
           canViewUsers ? (
             <Button asChild variant="inverse" size="sm">
@@ -71,14 +89,32 @@ export function DashboardView() {
         }
       />
 
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-        {canViewUsers ? <RecentUsersCard users={users.data} isPending={users.isPending} /> : <MyPermissionsCard />}
-        <div className="grid gap-4">
+      {canViewUsers ? (
+        <>
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_288px]">
+            <GrowthChartCard users={users.data} isPending={users.isPending} now={now} />
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+              {stats.map((stat) => (
+                <StatCard key={stat.label} {...stat} />
+              ))}
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_288px]">
+            <RoleRingsCard users={users.data} isPending={users.isPending} />
+            <WeeklySignupsCard users={users.data} isPending={users.isPending} now={now} />
+            <HealthCard className="md:col-span-2 xl:col-span-1" />
+          </div>
+          <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_288px]">
+            <RecentUsersCard users={users.data} isPending={users.isPending} />
+            <MyPermissionsCard />
+          </div>
+        </>
+      ) : (
+        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_304px]">
+          <MyPermissionsCard />
           <HealthCard />
-          {canViewUsers ? <RoleDistributionCard users={users.data} isPending={users.isPending} /> : null}
-          {canViewUsers ? <MyPermissionsCard /> : null}
         </div>
-      </div>
+      )}
     </div>
   );
 }

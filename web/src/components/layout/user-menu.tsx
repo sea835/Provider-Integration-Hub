@@ -1,6 +1,6 @@
 "use client";
 
-import { CaretUpDown, SignOut } from "@phosphor-icons/react/ssr";
+import { CaretDown, SignOut } from "@phosphor-icons/react/ssr";
 import { useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -24,15 +24,11 @@ export function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className="flex h-9 items-center gap-2 rounded-md px-1 text-left transition-colors duration-200 hover:bg-accent data-[state=open]:bg-accent sm:pr-2"
-        aria-label="Tài khoản của bạn"
+        className="flex h-10 items-center gap-1.5 rounded-full pr-1 text-hero-foreground outline-white transition-opacity duration-200 hover:opacity-90"
+        aria-label={`Tài khoản ${user.email}`}
       >
-        <Avatar name={user.email} className="size-7" />
-        <span className="hidden min-w-0 flex-col md:flex">
-          <span className="max-w-44 truncate text-[13px] leading-tight font-medium">{user.email}</span>
-          <span className="text-[11px] leading-tight text-muted-foreground">{role.label}</span>
-        </span>
-        <CaretUpDown className="hidden size-3.5 text-muted-foreground md:block" aria-hidden />
+        <Avatar name={user.email} className="size-10 text-xs ring-2 ring-white/40" />
+        <CaretDown className="size-3.5" weight="fill" aria-hidden />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
         <DropdownMenuLabel className="flex items-center gap-3 py-2">

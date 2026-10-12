@@ -23,10 +23,9 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   })).filter((section) => section.items.length > 0);
 
   return (
-    <nav aria-label="Điều hướng chính" className="flex flex-col gap-5">
+    <nav aria-label="Điều hướng chính" className="flex flex-col gap-3">
       {sections.map((section) => (
-        <div key={section.title} className="space-y-0.5">
-          <p className="px-2.5 pb-1 text-xs font-medium text-muted-foreground">{section.title}</p>
+        <div key={section.title} role="group" aria-label={section.title} className="space-y-1">
           {section.items.map((item) => {
             const active = isActivePath(pathname, item.href);
             const Icon = item.icon;
@@ -37,13 +36,13 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
                 onClick={onNavigate}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex h-9 items-center gap-2.5 rounded-md px-2.5 text-[13px] font-medium transition-[background-color,color] duration-200 pointer-coarse:h-11",
+                  "relative flex h-10 items-center gap-3 rounded-md pr-3 pl-5 text-[13px] outline-white transition-[background-color,color] duration-200 focus-visible:-outline-offset-2 pointer-coarse:h-12",
                   active
-                    ? "bg-hero text-hero-foreground shadow-xs"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                    ? "bg-white/20 font-semibold text-white before:absolute before:top-1/2 before:left-0 before:h-7 before:w-1.5 before:-translate-y-1/2 before:rounded-r-full before:bg-white"
+                    : "font-medium text-white/80 hover:bg-white/10 hover:text-white",
                 )}
               >
-                <Icon className="size-4 shrink-0" weight={active ? "fill" : "regular"} aria-hidden />
+                <Icon className="size-[18px] shrink-0" weight="fill" aria-hidden />
                 {item.label}
               </Link>
             );
@@ -56,16 +55,19 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 
 function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex h-16 shrink-0 items-center px-4">
-        <Link href="/" onClick={onNavigate} className="rounded-md" aria-label="Về bảng điều khiển">
-          <Brand />
-        </Link>
-      </div>
-      <div className="flex-1 scrollbar-thin overflow-y-auto px-3 py-3">
+    <div className="flex h-full flex-col py-6">
+      <Link
+        href="/"
+        onClick={onNavigate}
+        className="mx-auto shrink-0 rounded-xl outline-white"
+        aria-label="Về bảng điều khiển"
+      >
+        <Brand stacked />
+      </Link>
+      <div className="mt-7 flex-1 scrollbar-thin overflow-y-auto">
         <SidebarNav onNavigate={onNavigate} />
       </div>
-      <div className="px-5 py-4">
+      <div className="shrink-0 px-5 pt-4">
         <HealthPill />
       </div>
     </div>
@@ -76,42 +78,45 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="min-h-dvh md:grid md:grid-cols-[216px_minmax(0,1fr)] lg:grid-cols-[240px_minmax(0,1fr)]">
+    <div className="min-h-dvh md:p-3 lg:p-4">
       <a
         href="#main"
-        className="sr-only z-[60] rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
+        className="sr-only z-[60] rounded-md bg-white px-3 py-2 text-sm font-semibold text-primary focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
       >
         Bỏ qua điều hướng
       </a>
-      <aside className="sticky top-0 hidden h-dvh md:block">
-        <SidebarBody />
-      </aside>
-      <div className="flex min-w-0 flex-col">
-        <header className="sticky top-0 z-40 flex h-14 items-center gap-2 bg-background/85 px-4 backdrop-blur-md sm:px-6">
-          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="-ml-1.5 md:hidden" aria-label="Mở menu điều hướng">
-                <List aria-hidden />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left">
-              <SheetTitle className="sr-only">Menu điều hướng</SheetTitle>
-              <SheetDescription className="sr-only">Chọn một mục để chuyển trang</SheetDescription>
-              <SidebarBody onNavigate={() => setMobileOpen(false)} />
-            </SheetContent>
-          </Sheet>
-          <div className="ml-auto flex items-center gap-1">
-            <ThemeToggle />
-            <UserMenu />
+      <div className="glass-frame min-h-dvh md:grid md:min-h-[calc(100dvh-1.5rem)] md:grid-cols-[192px_minmax(0,1fr)] md:gap-4 md:rounded-3xl md:p-4 lg:min-h-[calc(100dvh-2rem)] lg:grid-cols-[200px_minmax(0,1fr)] lg:gap-5 lg:rounded-[28px] lg:p-5">
+        <aside className="sidebar-surface sticky top-7 hidden h-[calc(100dvh-3.5rem)] overflow-hidden rounded-[20px] md:block lg:top-9 lg:h-[calc(100dvh-4.5rem)]">
+          <SidebarBody />
+        </aside>
+        <div className="relative mx-auto flex w-full max-w-[1320px] min-w-0 flex-col">
+          <div className="z-30 flex items-center gap-2 px-4 pt-4 md:absolute md:top-0.5 md:right-0 md:p-0">
+            <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+              <SheetTrigger asChild>
+                <Button
+                  variant="inverse-ghost"
+                  size="icon"
+                  className="glass-chip rounded-full md:hidden"
+                  aria-label="Mở menu điều hướng"
+                >
+                  <List aria-hidden />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left">
+                <SheetTitle className="sr-only">Menu điều hướng</SheetTitle>
+                <SheetDescription className="sr-only">Chọn một mục để chuyển trang</SheetDescription>
+                <SidebarBody onNavigate={() => setMobileOpen(false)} />
+              </SheetContent>
+            </Sheet>
+            <div className="ml-auto flex items-center gap-2.5">
+              <ThemeToggle />
+              <UserMenu />
+            </div>
           </div>
-        </header>
-        <main
-          id="main"
-          tabIndex={-1}
-          className="mx-auto w-full max-w-[1280px] flex-1 px-4 pt-2 pb-14 outline-none sm:px-6 lg:px-8"
-        >
-          {children}
-        </main>
+          <main id="main" tabIndex={-1} className="flex-1 px-4 pt-5 pb-10 outline-none md:px-0.5 md:pt-0.5 md:pb-1">
+            {children}
+          </main>
+        </div>
       </div>
     </div>
   );

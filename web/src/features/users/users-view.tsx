@@ -1,9 +1,18 @@
 "use client";
 
-import { ArrowClockwise, MagnifyingGlass, UserPlus, Users, X } from "@phosphor-icons/react/ssr";
+import {
+  ArrowClockwise,
+  CheckCircle,
+  LockKey,
+  MagnifyingGlass,
+  ShieldCheck,
+  UserPlus,
+  Users,
+  X,
+} from "@phosphor-icons/react/ssr";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useDeferredValue, useMemo, useState } from "react";
-import { PageBanner } from "@/components/layout/page-banner";
+import { PageHeader } from "@/components/layout/page-header";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -132,16 +141,21 @@ export function UsersView() {
   };
 
   return (
-    <div className="space-y-6">
-      <PageBanner
+    <div className="flex flex-col gap-5">
+      <PageHeader
         eyebrow="Quản trị"
         title="Người dùng"
         description="Quản lý tài khoản, vai trò và trạng thái truy cập của thành viên trong hệ thống."
         stats={[
-          { label: "Tổng", value: isPending ? "-" : formatNumber(stats.total) },
-          { label: "Hoạt động", value: isPending ? "-" : formatNumber(stats.active) },
-          { label: "Quản trị viên", value: isPending ? "-" : formatNumber(stats.admins) },
-          { label: "Bị khóa", value: isPending ? "-" : formatNumber(stats.locked) },
+          { label: "Tổng người dùng", value: isPending ? "-" : formatNumber(stats.total), icon: Users },
+          {
+            label: "Đang hoạt động",
+            value: isPending ? "-" : formatNumber(stats.active),
+            icon: CheckCircle,
+            tone: "success",
+          },
+          { label: "Quản trị viên", value: isPending ? "-" : formatNumber(stats.admins), icon: ShieldCheck },
+          { label: "Bị khóa", value: isPending ? "-" : formatNumber(stats.locked), icon: LockKey, tone: "danger" },
         ]}
         actions={
           <>
@@ -159,7 +173,7 @@ export function UsersView() {
         }
       />
 
-      <Card tone="plain">
+      <Card className="p-4">
         <div className="flex flex-col gap-2 pb-3 lg:flex-row lg:items-center">
           <div className="relative flex-1">
             <MagnifyingGlass

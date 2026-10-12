@@ -1,13 +1,8 @@
 import type { ComponentProps } from "react";
 import { cn } from "@/lib/utils";
 
-export function Card({ className, tone = "subtle", ...props }: ComponentProps<"div"> & { tone?: "subtle" | "plain" }) {
-  return (
-    <div
-      className={cn("rounded-lg text-card-foreground", tone === "subtle" ? "bg-card" : "bg-transparent", className)}
-      {...props}
-    />
-  );
+export function Card({ className, ...props }: ComponentProps<"div">) {
+  return <div className={cn("rounded-xl bg-card text-card-foreground shadow-soft", className)} {...props} />;
 }
 
 export function CardHeader({ className, ...props }: ComponentProps<"div">) {
@@ -15,7 +10,7 @@ export function CardHeader({ className, ...props }: ComponentProps<"div">) {
 }
 
 export function CardTitle({ className, ...props }: ComponentProps<"h3">) {
-  return <h3 className={cn("text-[15px] leading-tight font-bold tracking-tight", className)} {...props} />;
+  return <h3 className={cn("text-base leading-tight font-semibold tracking-tight", className)} {...props} />;
 }
 
 export function CardDescription({ className, ...props }: ComponentProps<"p">) {

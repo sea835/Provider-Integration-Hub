@@ -3,8 +3,8 @@ import { cn } from "@/lib/utils";
 
 const PALETTE = [
   "bg-primary-soft text-primary",
-  "bg-secondary text-secondary-foreground",
-  "bg-[oklch(0.92_0.02_15)] text-[oklch(0.4_0.05_15)] dark:bg-[oklch(0.3_0.03_15)] dark:text-[oklch(0.88_0.03_15)]",
+  "bg-success-soft text-success",
+  "bg-[#fde7f1] text-[#b02a6b] dark:bg-[#4a1f3d] dark:text-[#f6a5cb]",
   "bg-hero text-hero-foreground",
 ];
 
@@ -19,7 +19,7 @@ export function Avatar({ name, className }: { name: string; className?: string }
     <span
       aria-hidden
       className={cn(
-        "inline-flex size-8 shrink-0 items-center justify-center rounded-md text-[11px] font-semibold tracking-wide select-none",
+        "inline-flex size-8 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold tracking-wide select-none",
         PALETTE[hashOf(name) % PALETTE.length],
         className,
       )}

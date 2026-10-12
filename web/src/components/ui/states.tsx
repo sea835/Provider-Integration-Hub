@@ -16,7 +16,7 @@ interface EmptyStateProps {
 export function EmptyState({ icon: Icon, title, description, action, className }: EmptyStateProps) {
   return (
     <div className={cn("flex flex-col items-center justify-center px-6 py-12 text-center", className)}>
-      <span className="relative mb-3 flex size-10 items-center justify-center rounded-md bg-muted">
+      <span className="relative mb-3 flex size-11 items-center justify-center rounded-full bg-muted">
         <Icon className="size-5 text-muted-foreground" aria-hidden />
       </span>
       <h3 className="text-sm font-semibold">{title}</h3>
@@ -40,7 +40,7 @@ export function ErrorState({
   const requestId = isApiError(error) ? error.requestId : undefined;
   return (
     <div role="alert" className={cn("flex flex-col items-center justify-center px-6 py-10 text-center", className)}>
-      <span className="mb-3 flex size-10 items-center justify-center rounded-md bg-danger-soft">
+      <span className="mb-3 flex size-11 items-center justify-center rounded-full bg-danger-soft">
         <WarningOctagon className="size-5 text-danger" aria-hidden />
       </span>
       <h3 className="text-sm font-semibold">{title}</h3>
@@ -62,9 +62,9 @@ export function ErrorState({
 
 export function ForbiddenState({ description }: { description?: string }) {
   return (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center px-6 text-center">
-      <span className="mb-4 flex size-12 items-center justify-center rounded-lg bg-card shadow-soft">
-        <ShieldSlash className="size-6 text-muted-foreground" aria-hidden />
+    <div className="mx-auto mt-[12vh] flex max-w-lg flex-col items-center justify-center rounded-xl bg-card px-6 py-12 text-center shadow-soft">
+      <span className="mb-4 flex size-14 items-center justify-center rounded-full bg-primary-soft">
+        <ShieldSlash className="size-7 text-primary" weight="fill" aria-hidden />
       </span>
       <h1 className="text-lg font-semibold">Bạn không có quyền truy cập trang này</h1>
       <p className="mt-2 max-w-md text-sm text-muted-foreground">

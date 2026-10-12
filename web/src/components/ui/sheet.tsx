@@ -19,10 +19,10 @@ export function SheetContent({
 }: ComponentProps<typeof DialogPrimitive.Content> & { side?: "left" | "right" }) {
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[oklch(0.18_0.01_50/0.45)] data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
+      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[rgb(14_8_40/0.6)] data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
       <DialogPrimitive.Content
         className={cn(
-          "fixed inset-y-0 z-50 flex w-[min(17rem,calc(100vw-3rem))] flex-col bg-sidebar shadow-lift duration-300 data-[state=closed]:animate-out data-[state=open]:animate-in",
+          "sidebar-surface fixed inset-y-0 z-50 flex w-[min(17rem,calc(100vw-3rem))] flex-col shadow-lift duration-300 data-[state=closed]:animate-out data-[state=open]:animate-in",
           side === "left"
             ? "left-0 data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left"
             : "right-0 data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right",
@@ -32,7 +32,7 @@ export function SheetContent({
       >
         {children}
         <DialogPrimitive.Close
-          className="absolute top-2.5 right-2.5 inline-flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+          className="absolute top-2.5 right-2.5 inline-flex size-9 items-center justify-center rounded-full text-white/80 outline-white hover:bg-white/15 hover:text-white"
           aria-label="Đóng menu"
         >
           <X className="size-4" aria-hidden />
